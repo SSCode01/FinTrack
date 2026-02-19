@@ -14,13 +14,16 @@ class MoneyTransaction extends HiveObject {
   double amount;
 
   @HiveField(3)
-  bool isCredit; // true = they owe you / you paid
+  bool isCredit; // true = they owe you
 
   @HiveField(4)
   String note;
 
   @HiveField(5)
   DateTime date;
+
+  @HiveField(6)
+  bool isPaid;
 
   MoneyTransaction({
     required this.id,
@@ -29,5 +32,6 @@ class MoneyTransaction extends HiveObject {
     required this.isCredit,
     required this.note,
     required this.date,
+    this.isPaid = false,
   });
 }

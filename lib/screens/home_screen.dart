@@ -33,7 +33,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 offset: Offset(0, 1),
               ),
             ],
-
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -41,19 +40,20 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
       ),
 
-
-
-      // ➕ ADD TRANSACTION
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AddTransactionScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AddTransactionScreen(),
+              ),
+            );
+          },
+          backgroundColor: const Color(0xFF1B5E20),
+          child: const Icon(Icons.add, color: Color(0xFFFFD700)),
+        ),
       ),
 
       body: Container(
@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // 📜 TRANSACTIONS LIST
+            // 📜 TRANSACTIONS LIST (only unpaid)
             Expanded(
               child: ValueListenableBuilder(
                 valueListenable: transactionsBox.listenable(),
@@ -93,29 +93,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   final transactions = box.values
                       .where((txn) =>
-                  txn.personName.toLowerCase().contains(query) ||
-                      txn.note.toLowerCase().contains(query))
+                          !txn.isPaid &&
+                          (txn.personName.toLowerCase().contains(query) ||
+                              txn.note.toLowerCase().contains(query)))
                       .toList()
                     ..sort((a, b) => b.date.compareTo(a.date));
 
                   if (transactions.isEmpty) {
                     return const Center(
                       child: Text(
-                        'No transactions yet',
-                        style: TextStyle(color: Colors.white, fontSize: 18),
+                        'No active transactions',
+                        style:
+                            TextStyle(color: Colors.white, fontSize: 18),
                       ),
                     );
                   }
 
                   return ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 100),
                     itemCount: transactions.length,
                     itemBuilder: (context, index) {
                       final txn = transactions[index];
 
                       return Slidable(
                         key: ValueKey(txn.key),
-
-                        // 👉 SLIDE ACTIONS
                         endActionPane: ActionPane(
                           motion: const ScrollMotion(),
                           children: [
@@ -125,8 +126,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        AddTransactionScreen(existingTxn: txn),
+                                    builder: (_) => AddTransactionScreen(
+                                        existingTxn: txn),
                                   ),
                                 );
                               },
@@ -149,15 +150,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
 
-                        // 👉 TRANSACTION CARD
                         child: Card(
                           color: Colors.black.withOpacity(0.55),
                           margin: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor:
-                              txn.isCredit ? Colors.green : Colors.red,
+                              backgroundColor: txn.isCredit
+                                  ? Colors.green
+                                  : Colors.red,
                               child: Icon(
                                 txn.isCredit
                                     ? Icons.arrow_downward
@@ -167,12 +168,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             title: Text(
                               txn.personName,
-                              style: const TextStyle(color: Colors.white),
+                              style:
+                                  const TextStyle(color: Colors.white),
                             ),
                             subtitle: Text(
                               '${txn.note} • ${_formatDate(txn.date)}',
-                              style:
-                              const TextStyle(color: Colors.white70),
+                              style: const TextStyle(
+                                  color: Colors.white70),
                             ),
                             trailing: Text(
                               '${txn.isCredit ? '+' : '-'}${formatAmount(txn.amount)}',

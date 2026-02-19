@@ -18,6 +18,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _noteController = TextEditingController();
 
   bool isCredit = true;
+  bool isPaid = false;
 
   @override
   void initState() {
@@ -25,10 +26,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     if (widget.existingTxn != null) {
       _nameController.text = widget.existingTxn!.personName;
-      _amountController.text =
-          widget.existingTxn!.amount.toString();
+      _amountController.text = widget.existingTxn!.amount.toString();
       _noteController.text = widget.existingTxn!.note;
       isCredit = widget.existingTxn!.isCredit;
+      isPaid = widget.existingTxn!.isPaid;
     }
   }
 
@@ -44,21 +45,20 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ..amount = amount
         ..note = _noteController.text.trim()
         ..isCredit = isCredit
+        ..isPaid = isPaid
         ..date = DateTime.now()
         ..save();
     } else {
       final box = Hive.box<MoneyTransaction>('transactionsBox');
       box.add(
         MoneyTransaction(
-          id: DateTime
-              .now()
-              .millisecondsSinceEpoch
-              .toString(),
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
           personName: name,
           amount: amount,
           isCredit: isCredit,
           note: _noteController.text.trim(),
           date: DateTime.now(),
+          isPaid: isPaid,
         ),
       );
     }
@@ -76,7 +76,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         title: Text(
           isEdit ? 'Edit Transaction' : 'Add Transaction',
           style: const TextStyle(
-            color: Color(0xFFFFD700), // GOLD
+            color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -124,7 +124,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // SWITCH
+                    // WHO OWES WHOM SWITCH
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.08),
@@ -143,6 +143,46 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       ),
                     ),
 
+                    const SizedBox(height: 12),
+
+                    // PAID / NOT PAID SWITCH
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: SwitchListTile(
+                        secondary: Icon(
+                          isPaid
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color:
+                              isPaid ? Colors.greenAccent : Colors.white54,
+                        ),
+                        title: Text(
+                          isPaid ? 'Paid' : 'Not Paid',
+                          style: TextStyle(
+                            color: isPaid
+                                ? Colors.greenAccent
+                                : Colors.white70,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          isPaid
+                              ? 'Moved to Past Transactions'
+                              : 'Still active',
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 12),
+                        ),
+                        value: isPaid,
+                        activeColor: Colors.greenAccent,
+                        onChanged: (val) {
+                          setState(() => isPaid = val);
+                        },
+                      ),
+                    ),
+
                     const SizedBox(height: 24),
 
                     // SAVE BUTTON
@@ -151,16 +191,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       child: ElevatedButton(
                         onPressed: _saveTransaction,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                          const Color(0xFF2E7D32),
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 14),
+                          backgroundColor: const Color(0xFF2E7D32),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: Text(
-                          isEdit ? 'Update Transaction' : 'Save Transaction',
+                          isEdit
+                              ? 'Update Transaction'
+                              : 'Save Transaction',
                           style: const TextStyle(
                             color: Color(0xFFFFD700),
                             fontWeight: FontWeight.bold,
