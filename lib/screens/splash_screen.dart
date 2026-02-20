@@ -306,7 +306,7 @@ class _SplashScreenState extends State<SplashScreen>
                       );
                     },
                     child: const Text(
-                      'Track money. Stay in control.',
+                      'Track smarter. Spend wiser. Grow faster.',
                       style: TextStyle(
                         color: Colors.white60,
                         fontSize: 15,
