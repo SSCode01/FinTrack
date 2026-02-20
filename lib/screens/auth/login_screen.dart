@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,27 +14,56 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
 
+  // EMAIL/PASSWORD LOGIN
   Future<void> _login() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // AuthGate in main.dart will automatically redirect to MainNavScreen
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        _errorMessage = _friendlyError(e.code);
-      });
+      setState(() => _errorMessage = _friendlyError(e.code));
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // GOOGLE LOGIN
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: '305156686283-4k5kgerflhjo7csd3h8lmh0k25b0b7ve.apps.googleusercontent.com',
+      );
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorMessage = _friendlyError(e.code));
+    } catch (e) {
+      setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -72,6 +102,8 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Too many attempts. Try again later.';
       case 'invalid-credential':
         return 'Invalid email or password.';
+      case 'account-exists-with-different-credential':
+        return 'Account already exists with a different sign-in method.';
       default:
         return 'Something went wrong. Please try again.';
     }
@@ -103,12 +135,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // LOGO / TITLE
-                    const Icon(
-                      Icons.account_balance_wallet,
-                      size: 72,
-                      color: Color(0xFFFFD700),
-                    ),
+                    // LOGO
+                    const Icon(Icons.account_balance_wallet,
+                        size: 72, color: Color(0xFFFFD700)),
                     const SizedBox(height: 12),
                     const Text(
                       'FinTrack',
@@ -131,27 +160,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     Card(
                       color: Colors.black.withOpacity(0.6),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                          borderRadius: BorderRadius.circular(20)),
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Welcome back',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            const Text('Welcome back',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Sign in to your account',
-                              style: TextStyle(
-                                  color: Colors.white54, fontSize: 13),
-                            ),
+                            const Text('Sign in to your account',
+                                style: TextStyle(
+                                    color: Colors.white54, fontSize: 13)),
                             const SizedBox(height: 24),
 
                             // EMAIL
@@ -176,8 +199,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       : Icons.visibility,
                                   color: Colors.white54,
                                 ),
-                                onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
+                                onPressed: () => setState(() =>
+                                    _obscurePassword = !_obscurePassword),
                               ),
                             ),
 
@@ -186,15 +209,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               alignment: Alignment.centerRight,
                               child: TextButton(
                                 onPressed: _resetPassword,
-                                child: const Text(
-                                  'Forgot password?',
-                                  style: TextStyle(
-                                      color: Color(0xFFFFD700), fontSize: 13),
-                                ),
+                                child: const Text('Forgot password?',
+                                    style: TextStyle(
+                                        color: Color(0xFFFFD700),
+                                        fontSize: 13)),
                               ),
                             ),
 
-                            // ERROR MESSAGE
+                            // ERROR
                             if (_errorMessage != null) ...[
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -211,12 +233,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         color: Colors.redAccent, size: 18),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: Text(
-                                        _errorMessage!,
-                                        style: const TextStyle(
-                                            color: Colors.redAccent,
-                                            fontSize: 13),
-                                      ),
+                                      child: Text(_errorMessage!,
+                                          style: const TextStyle(
+                                              color: Colors.redAccent,
+                                              fontSize: 13)),
                                     ),
                                   ],
                                 ),
@@ -224,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 14),
                             ],
 
-                            // LOGIN BUTTON
+                            // SIGN IN BUTTON
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
@@ -234,25 +254,85 @@ class _LoginScreenState extends State<LoginScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 14),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
+                                      borderRadius: BorderRadius.circular(14)),
                                 ),
                                 child: _isLoading
                                     ? const SizedBox(
                                         height: 20,
                                         width: 20,
                                         child: CircularProgressIndicator(
-                                          color: Color(0xFFFFD700),
-                                          strokeWidth: 2,
-                                        ),
+                                            color: Color(0xFFFFD700),
+                                            strokeWidth: 2),
                                       )
-                                    : const Text(
-                                        'Sign In',
+                                    : const Text('Sign In',
                                         style: TextStyle(
-                                          color: Color(0xFFFFD700),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
+                                            color: Color(0xFFFFD700),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16)),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // DIVIDER
+                            Row(
+                              children: const [
+                                Expanded(child: Divider(color: Colors.white24)),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text('OR',
+                                      style: TextStyle(
+                                          color: Colors.white38, fontSize: 12)),
+                                ),
+                                Expanded(child: Divider(color: Colors.white24)),
+                              ],
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // GOOGLE SIGN IN BUTTON
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: _isGoogleLoading
+                                    ? null
+                                    : _loginWithGoogle,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14),
+                                  side: const BorderSide(
+                                      color: Colors.white24),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14)),
+                                ),
+                                child: _isGoogleLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                            color: Color(0xFFFFD700),
+                                            strokeWidth: 2),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Image.network(
+                                            'https://www.google.com/favicon.ico',
+                                            height: 20,
+                                            width: 20,
+                                            errorBuilder: (_, __, ___) =>
+                                                const Icon(Icons.g_mobiledata,
+                                                    color: Colors.white,
+                                                    size: 24),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          const Text('Continue with Google',
+                                              style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w500)),
+                                        ],
                                       ),
                               ),
                             ),
@@ -267,25 +347,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(color: Colors.white60),
-                        ),
+                        const Text("Don't have an account? ",
+                            style: TextStyle(color: Colors.white60)),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const SignupScreen()),
-                            );
-                          },
-                          child: const Text(
-                            'Sign Up',
-                            style: TextStyle(
-                              color: Color(0xFFFFD700),
-                              fontWeight: FontWeight.bold,
-                            ),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SignupScreen()),
                           ),
+                          child: const Text('Sign Up',
+                              style: TextStyle(
+                                  color: Color(0xFFFFD700),
+                                  fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),

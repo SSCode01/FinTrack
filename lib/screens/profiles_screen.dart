@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../models/money_transaction.dart';
+import '../services/transaction_service.dart';
 import '../utils/balance_utils.dart';
 import '../utils/format_utils.dart';
 import 'profile_detail_screen.dart';
@@ -11,50 +11,86 @@ class ProfilesScreen extends StatelessWidget {
   const ProfilesScreen({super.key});
 
   Future<void> _logout(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+
     final confirm = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1B3A1F),
-        title: const Text('Sign Out',
-            style: TextStyle(color: Color(0xFFFFD700))),
-        content: const Text('Are you sure you want to sign out?',
-            style: TextStyle(color: Colors.white70)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.logout, color: Colors.redAccent, size: 24),
+            SizedBox(width: 10),
+            Text('Sign Out',
+                style: TextStyle(color: Color(0xFFFFD700), fontSize: 20)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to sign out?',
+              style: TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your data is safely stored in the cloud. You can sign back in anytime.',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(ctx, false);
+            },
             child: const Text('Cancel',
-                style: TextStyle(color: Colors.white54)),
+                style: TextStyle(color: Colors.white54, fontSize: 15)),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
+          ElevatedButton.icon(
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              Navigator.pop(ctx, true);
+            },
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent),
-            child: const Text('Sign Out',
-                style: TextStyle(color: Colors.white)),
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.logout, color: Colors.white, size: 16),
+            label: const Text('Sign Out',
+                style: TextStyle(color: Colors.white, fontSize: 15)),
           ),
         ],
       ),
     );
+
     if (confirm == true) {
       await FirebaseAuth.instance.signOut();
-      // AuthGate will automatically redirect to LoginScreen
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You have been signed out successfully.'),
+            backgroundColor: Color(0xFF2E7D32),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final box = Hive.box<MoneyTransaction>('transactionsBox');
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text(
-          'Profiles',
-          style: TextStyle(
-            color: Color(0xFFFFD700),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Profiles',
+            style: TextStyle(
+                color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF2E7D32).withOpacity(0.85),
         elevation: 0,
         actions: [
@@ -72,25 +108,30 @@ class ProfilesScreen extends StatelessWidget {
             fit: BoxFit.cover,
           ),
         ),
-        child: ValueListenableBuilder(
-          valueListenable: box.listenable(),
-          builder: (context, Box<MoneyTransaction> b, _) {
-            if (b.values.isEmpty) {
+        child: StreamBuilder<List<MoneyTransaction>>(
+          stream: TransactionService.transactionsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                child: Text(
-                  'No profiles yet',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
+                child: CircularProgressIndicator(color: Color(0xFFFFD700)),
               );
             }
 
-            // Group ALL transactions (paid + unpaid) by person
+            final allTxns = snapshot.data ?? [];
+
+            if (allTxns.isEmpty) {
+              return const Center(
+                child: Text('No profiles yet',
+                    style: TextStyle(color: Colors.white, fontSize: 18)),
+              );
+            }
+
+            // Group by person
             final Map<String, List<MoneyTransaction>> byPerson = {};
-            for (final t in b.values) {
+            for (final t in allTxns) {
               byPerson.putIfAbsent(t.personName, () => []).add(t);
             }
 
-            // Sort by outstanding (unpaid) balance descending
             final entries = byPerson.entries.toList()
               ..sort((a, b) {
                 final balA = calculateBalance(
@@ -105,76 +146,52 @@ class ProfilesScreen extends StatelessWidget {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                final allTxns = entry.value;
-                final unpaidTxns =
-                    allTxns.where((t) => !t.isPaid).toList();
-                final paidTxns =
-                    allTxns.where((t) => t.isPaid).toList();
-
-                final outstandingBalance =
-                    calculateBalance(unpaidTxns);
-                final totalTransactions = allTxns.length;
-                final paidCount = paidTxns.length;
+                final txns = entry.value;
+                final unpaid = txns.where((t) => !t.isPaid).toList();
+                final paidCount = txns.where((t) => t.isPaid).length;
+                final outstanding = calculateBalance(unpaid);
 
                 return Card(
                   color: Colors.black.withOpacity(0.55),
                   margin: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                      borderRadius: BorderRadius.circular(14)),
                   child: ListTile(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProfileDetailScreen(
-                            personName: entry.key,
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ProfileDetailScreen(personName: entry.key),
+                      ),
+                    ),
                     leading: CircleAvatar(
-                      backgroundColor: outstandingBalance >= 0
-                          ? Colors.green
-                          : Colors.red,
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                      ),
+                      backgroundColor:
+                          outstanding >= 0 ? Colors.green : Colors.red,
+                      child: const Icon(Icons.person, color: Colors.white),
                     ),
-                    title: Text(
-                      entry.key,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
+                    title: Text(entry.key,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16)),
                     subtitle: Row(
                       children: [
-                        Text(
-                          '$totalTransactions txn${totalTransactions == 1 ? '' : 's'}',
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 12),
-                        ),
+                        Text('${txns.length} txns',
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 12)),
                         if (paidCount > 0) ...[
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
-                              color:
-                                  Colors.greenAccent.withOpacity(0.15),
+                              color: Colors.greenAccent.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(
-                              '$paidCount paid',
-                              style: const TextStyle(
-                                color: Colors.greenAccent,
-                                fontSize: 11,
-                              ),
-                            ),
+                            child: Text('$paidCount paid',
+                                style: const TextStyle(
+                                    color: Colors.greenAccent, fontSize: 11)),
                           ),
                         ],
                       ],
@@ -184,26 +201,23 @@ class ProfilesScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          unpaidTxns.isEmpty
+                          unpaid.isEmpty
                               ? 'Settled'
-                              : '${outstandingBalance >= 0 ? '+' : '-'}${formatAmount(outstandingBalance.abs())}',
+                              : '${outstanding >= 0 ? '+' : '-'}${formatAmount(outstanding.abs())}',
                           style: TextStyle(
-                            color: unpaidTxns.isEmpty
+                            color: unpaid.isEmpty
                                 ? Colors.greenAccent
-                                : (outstandingBalance >= 0
+                                : (outstanding >= 0
                                     ? Colors.green
                                     : Colors.redAccent),
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
                         ),
-                        if (unpaidTxns.isEmpty)
-                          const Text(
-                            'All paid',
-                            style: TextStyle(
-                                color: Colors.greenAccent,
-                                fontSize: 11),
-                          ),
+                        if (unpaid.isEmpty)
+                          const Text('All paid',
+                              style: TextStyle(
+                                  color: Colors.greenAccent, fontSize: 11)),
                       ],
                     ),
                   ),

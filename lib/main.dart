@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/auth/login_screen.dart';
-import 'models/money_transaction.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,14 +13,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  await Hive.initFlutter();
-
-  if (!Hive.isAdapterRegistered(1)) {
-    Hive.registerAdapter(MoneyTransactionAdapter());
-  }
-
-  await Hive.openBox<MoneyTransaction>('transactionsBox');
 
   runApp(const FinTrackApp());
 }
@@ -40,30 +31,40 @@ class FinTrackApp extends StatelessWidget {
           ThemeData.dark().textTheme,
         ),
       ),
-      home: const AuthGate(),
+      home: const SplashWrapper(),
     );
   }
 }
 
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+class SplashWrapper extends StatefulWidget {
+  const SplashWrapper({super.key});
+
+  @override
+  State<SplashWrapper> createState() => _SplashWrapperState();
+}
+
+class _SplashWrapperState extends State<SplashWrapper> {
+  bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      if (mounted) setState(() => _showSplash = false);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_showSplash) return const SplashScreen();
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF1B5E20),
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFD700)),
-            ),
-          );
+          return const SplashScreen();
         }
-        if (snapshot.hasData) {
-          return const MainNavScreen();
-        }
+        if (snapshot.hasData) return const MainNavScreen();
         return const LoginScreen();
       },
     );

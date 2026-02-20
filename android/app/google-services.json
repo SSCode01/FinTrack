@@ -12,7 +12,20 @@
           "package_name": "com.example.fintrack"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "305156686283-24cimn042ua5sgc5uvkkcdi8l9ud1cvt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fintrack",
+            "certificate_hash": "fc8425cf799f035eb6c9a5b554e6d0418c596c34"
+          }
+        },
+        {
+          "client_id": "305156686283-4k5kgerflhjo7csd3h8lmh0k25b0b7ve.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAWt5ZICg-2ZyjVG7j_Il-K0d8883e0pvk"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "305156686283-4k5kgerflhjo7csd3h8lmh0k25b0b7ve.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

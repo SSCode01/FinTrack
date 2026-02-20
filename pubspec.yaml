@@ -19,8 +19,13 @@ dependencies:
   cupertino_icons: ^1.0.8
   animated_notch_bottom_bar: ^1.0.0
   google_fonts: ^6.2.1
-  firebase_core: ^4.4.0
-  firebase_auth: ^6.1.4
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.0
+  cloud_firestore: ^5.4.0
+  google_sign_in: 6.3.0
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  fl_chart: ^0.68.0
 
 dev_dependencies:
   flutter_test:
@@ -36,7 +41,7 @@ flutter:
     - assets/images/bgim.jpg
     - assets/icon/app_icon.png
 
-
+# ⬇⬇⬇ THIS MUST BE OUTSIDE flutter:
 flutter_launcher_icons:
   android: true
   ios: true

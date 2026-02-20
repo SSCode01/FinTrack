@@ -1,28 +1,12 @@
-import 'package:hive/hive.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-part 'money_transaction.g.dart';
-
-@HiveType(typeId: 1)
-class MoneyTransaction extends HiveObject {
-  @HiveField(0)
-  String id;
-
-  @HiveField(1)
+class MoneyTransaction {
+  final String id;
   String personName;
-
-  @HiveField(2)
   double amount;
-
-  @HiveField(3)
-  bool isCredit; // true = they owe you
-
-  @HiveField(4)
+  bool isCredit;
   String note;
-
-  @HiveField(5)
   DateTime date;
-
-  @HiveField(6)
   bool isPaid;
 
   MoneyTransaction({
@@ -34,4 +18,28 @@ class MoneyTransaction extends HiveObject {
     required this.date,
     this.isPaid = false,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'personName': personName,
+      'amount': amount,
+      'isCredit': isCredit,
+      'note': note,
+      'date': Timestamp.fromDate(date),
+      'isPaid': isPaid,
+    };
+  }
+
+  factory MoneyTransaction.fromMap(String id, Map<String, dynamic> map) {
+    return MoneyTransaction(
+      id: id,
+      personName: map['personName'] ?? '',
+      amount: (map['amount'] ?? 0).toDouble(),
+      isCredit: map['isCredit'] ?? true,
+      note: map['note'] ?? '',
+      date: (map['date'] as Timestamp).toDate(),
+      isPaid: map['isPaid'] ?? false,
+    );
+  }
 }

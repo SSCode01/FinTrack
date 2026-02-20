@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
 
+import 'dashboard_screen.dart';
 import 'home_screen.dart';
 import 'profiles_screen.dart';
 import 'past_transactions_screen.dart';
@@ -22,6 +23,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
     HomeScreen(),
     ProfilesScreen(),
     PastTransactionsScreen(),
+    DashboardScreen(),
   ];
 
   @override
@@ -34,14 +36,11 @@ class _MainNavScreenState extends State<MainNavScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF2E7D32),
-
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-
       extendBody: true,
-
       bottomNavigationBar: AnimatedNotchBottomBar(
         notchBottomBarController: _controller,
         color: const Color(0xFF2E7D32),
@@ -51,37 +50,24 @@ class _MainNavScreenState extends State<MainNavScreen> {
         kBottomRadius: 20,
         bottomBarItems: const [
           BottomBarItem(
-            inActiveItem: Icon(
-              Icons.home_outlined,
-              color: Colors.white70,
-            ),
-            activeItem: Icon(
-              Icons.home,
-              color: Color(0xFFFFD700),
-            ),
+            inActiveItem: Icon(Icons.home_outlined, color: Colors.white70),
+            activeItem: Icon(Icons.home, color: Color(0xFFFFD700)),
             itemLabel: 'Home',
           ),
           BottomBarItem(
-            inActiveItem: Icon(
-              Icons.people_outline,
-              color: Colors.white70,
-            ),
-            activeItem: Icon(
-              Icons.people,
-              color: Color(0xFFFFD700),
-            ),
+            inActiveItem: Icon(Icons.people_outline, color: Colors.white70),
+            activeItem: Icon(Icons.people, color: Color(0xFFFFD700)),
             itemLabel: 'Profiles',
           ),
           BottomBarItem(
-            inActiveItem: Icon(
-              Icons.history_outlined,
-              color: Colors.white70,
-            ),
-            activeItem: Icon(
-              Icons.history,
-              color: Color(0xFFFFD700),
-            ),
+            inActiveItem: Icon(Icons.history_outlined, color: Colors.white70),
+            activeItem: Icon(Icons.history, color: Color(0xFFFFD700)),
             itemLabel: 'Past',
+          ),
+          BottomBarItem(
+            inActiveItem: Icon(Icons.dashboard_outlined, color: Colors.white70),
+            activeItem: Icon(Icons.dashboard, color: Color(0xFFFFD700)),
+            itemLabel: 'Dashboard',
           ),
         ],
         onTap: (index) {

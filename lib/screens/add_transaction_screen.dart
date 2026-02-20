@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-
+import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 import '../models/money_transaction.dart';
+import '../services/transaction_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final MoneyTransaction? existingTxn;
@@ -19,11 +20,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   bool isCredit = true;
   bool isPaid = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-
     if (widget.existingTxn != null) {
       _nameController.text = widget.existingTxn!.personName;
       _amountController.text = widget.existingTxn!.amount.toString();
@@ -33,37 +34,65 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
-  void _saveTransaction() {
+  Future<void> _saveTransaction() async {
     final name = _nameController.text.trim();
     final amount = double.tryParse(_amountController.text);
+    if (name.isEmpty || amount == null) {
+      HapticFeedback.heavyImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in name and amount'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
 
-    if (name.isEmpty || amount == null) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _isLoading = true);
+
+    final txn = MoneyTransaction(
+      id: widget.existingTxn?.id ?? const Uuid().v4(),
+      personName: name,
+      amount: amount,
+      isCredit: isCredit,
+      note: _noteController.text.trim(),
+      date: DateTime.now(),
+      isPaid: isPaid,
+    );
 
     if (widget.existingTxn != null) {
-      widget.existingTxn!
-        ..personName = name
-        ..amount = amount
-        ..note = _noteController.text.trim()
-        ..isCredit = isCredit
-        ..isPaid = isPaid
-        ..date = DateTime.now()
-        ..save();
+      await TransactionService.updateTransaction(txn);
     } else {
-      final box = Hive.box<MoneyTransaction>('transactionsBox');
-      box.add(
-        MoneyTransaction(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          personName: name,
-          amount: amount,
-          isCredit: isCredit,
-          note: _noteController.text.trim(),
-          date: DateTime.now(),
-          isPaid: isPaid,
+      await TransactionService.addTransaction(txn);
+    }
+
+    HapticFeedback.lightImpact();
+
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.existingTxn != null
+              ? '✓ Transaction updated!'
+              : '✓ Transaction saved!'),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
+  }
 
-    Navigator.pop(context);
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
   }
 
   @override
@@ -76,9 +105,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         title: Text(
           isEdit ? 'Edit Transaction' : 'Add Transaction',
           style: const TextStyle(
-            color: Color(0xFFFFD700),
-            fontWeight: FontWeight.bold,
-          ),
+              color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF2E7D32).withOpacity(0.85),
         elevation: 0,
@@ -97,34 +124,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             child: Card(
               color: Colors.black.withOpacity(0.55),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+                  borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildField(
-                      controller: _nameController,
-                      label: 'Person Name',
-                      icon: Icons.person,
-                    ),
+                        controller: _nameController,
+                        label: 'Person Name',
+                        icon: Icons.person),
                     const SizedBox(height: 14),
                     _buildField(
-                      controller: _amountController,
-                      label: 'Amount',
-                      icon: Icons.currency_rupee,
-                      keyboardType: TextInputType.number,
-                    ),
+                        controller: _amountController,
+                        label: 'Amount',
+                        icon: Icons.currency_rupee,
+                        keyboardType: TextInputType.number),
                     const SizedBox(height: 14),
                     _buildField(
-                      controller: _noteController,
-                      label: 'Note',
-                      icon: Icons.notes,
-                    ),
+                        controller: _noteController,
+                        label: 'Note',
+                        icon: Icons.notes),
                     const SizedBox(height: 20),
 
-                    // WHO OWES WHOM SWITCH
+                    // WHO OWES WHOM
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.08),
@@ -138,6 +161,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         value: isCredit,
                         activeColor: const Color(0xFFFFD700),
                         onChanged: (val) {
+                          HapticFeedback.selectionClick();
                           setState(() => isCredit = val);
                         },
                       ),
@@ -145,7 +169,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
                     const SizedBox(height: 12),
 
-                    // PAID / NOT PAID SWITCH
+                    // PAID / NOT PAID
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.08),
@@ -156,15 +180,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           isPaid
                               ? Icons.check_circle
                               : Icons.radio_button_unchecked,
-                          color:
-                              isPaid ? Colors.greenAccent : Colors.white54,
+                          color: isPaid ? Colors.greenAccent : Colors.white54,
                         ),
                         title: Text(
                           isPaid ? 'Paid' : 'Not Paid',
                           style: TextStyle(
-                            color: isPaid
-                                ? Colors.greenAccent
-                                : Colors.white70,
+                            color: isPaid ? Colors.greenAccent : Colors.white70,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -178,6 +199,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         value: isPaid,
                         activeColor: Colors.greenAccent,
                         onChanged: (val) {
+                          HapticFeedback.selectionClick();
                           setState(() => isPaid = val);
                         },
                       ),
@@ -189,25 +211,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _saveTransaction,
+                        onPressed: _isLoading ? null : _saveTransaction,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2E7D32),
                           padding:
                               const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                              borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: Text(
-                          isEdit
-                              ? 'Update Transaction'
-                              : 'Save Transaction',
-                          style: const TextStyle(
-                            color: Color(0xFFFFD700),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFFFFD700),
+                                    strokeWidth: 2),
+                              )
+                            : Text(
+                                isEdit
+                                    ? 'Update Transaction'
+                                    : 'Save Transaction',
+                                style: const TextStyle(
+                                  color: Color(0xFFFFD700),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                       ),
                     ),
                   ],
