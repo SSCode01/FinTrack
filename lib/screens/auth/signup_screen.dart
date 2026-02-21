@@ -88,13 +88,19 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: Container(
-          color: Colors.black.withOpacity(0.55),
+          color: const Color(0xFF0D1F2D),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -129,7 +135,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
                     // CARD
                     Card(
-                      color: Colors.black.withOpacity(0.6),
+                      color: const Color(0xFF0D1F2D),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -314,7 +320,7 @@ class _SignupScreenState extends State<SignupScreen> {
         prefixIcon: Icon(icon, color: Colors.white70),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withOpacity(0.08),
+        fillColor: Colors.white.withOpacity(0.06),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

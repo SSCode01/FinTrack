@@ -1,8 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import '../models/money_transaction.dart';
 import '../services/transaction_service.dart';
+import '../utils/categories.dart';
+import '../utils/toast.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final MoneyTransaction? existingTxn;
@@ -21,6 +24,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   bool isCredit = true;
   bool isPaid = false;
   bool _isLoading = false;
+  String _selectedCategory = 'Other';
 
   @override
   void initState() {
@@ -31,6 +35,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _noteController.text = widget.existingTxn!.note;
       isCredit = widget.existingTxn!.isCredit;
       isPaid = widget.existingTxn!.isPaid;
+      _selectedCategory = widget.existingTxn!.category;
     }
   }
 
@@ -39,12 +44,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final amount = double.tryParse(_amountController.text);
     if (name.isEmpty || amount == null) {
       HapticFeedback.heavyImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in name and amount'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      showToast(context,
+          message: 'Please fill in\nname and amount',
+          type: ToastType.error,
+          icon: Icons.error_outline_rounded);
       return;
     }
 
@@ -59,6 +62,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       note: _noteController.text.trim(),
       date: DateTime.now(),
       isPaid: isPaid,
+      category: _selectedCategory,
     );
 
     if (widget.existingTxn != null) {
@@ -71,18 +75,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.existingTxn != null
-              ? '✓ Transaction updated!'
-              : '✓ Transaction saved!'),
-          backgroundColor: const Color(0xFF2E7D32),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-          duration: const Duration(seconds: 2),
-        ),
+      showToast(
+        context,
+        message: widget.existingTxn != null
+            ? 'Transaction\nUpdated!'
+            : 'Transaction\nSaved!',
+        type: ToastType.success,
       );
     }
   }
@@ -107,28 +105,44 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           style: const TextStyle(
               color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF2E7D32).withOpacity(0.85),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+            ),
+          ),
+        ),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Card(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.white.withOpacity(0.07),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildField(
                         controller: _nameController,
@@ -145,6 +159,80 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         controller: _noteController,
                         label: 'Note',
                         icon: Icons.notes),
+
+                    const SizedBox(height: 20),
+
+                    // CATEGORY PICKER
+                    const Text(
+                      'Category',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 80,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: kCategories.length,
+                        itemBuilder: (context, index) {
+                          final cat = kCategories[index];
+                          final isSelected =
+                              _selectedCategory == cat.name;
+                          return GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(
+                                  () => _selectedCategory = cat.name);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? cat.color.withOpacity(0.25)
+                                    : Colors.white.withOpacity(0.07),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? cat.color
+                                      : Colors.white24,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: [
+                                  Icon(cat.icon,
+                                      color: isSelected
+                                          ? cat.color
+                                          : Colors.white54,
+                                      size: 22),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    cat.name.split(' ').first,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? cat.color
+                                          : Colors.white54,
+                                      fontSize: 10,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
                     const SizedBox(height: 20),
 
                     // WHO OWES WHOM
@@ -180,12 +268,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           isPaid
                               ? Icons.check_circle
                               : Icons.radio_button_unchecked,
-                          color: isPaid ? Colors.greenAccent : Colors.white54,
+                          color:
+                              isPaid ? Colors.greenAccent : Colors.white54,
                         ),
                         title: Text(
                           isPaid ? 'Paid' : 'Not Paid',
                           style: TextStyle(
-                            color: isPaid ? Colors.greenAccent : Colors.white70,
+                            color: isPaid
+                                ? Colors.greenAccent
+                                : Colors.white70,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -213,7 +304,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _saveTransaction,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
+                          backgroundColor: const Color(0xFF1B5E20),
                           padding:
                               const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -264,7 +355,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         labelStyle: const TextStyle(color: Colors.white70),
         prefixIcon: Icon(icon, color: Colors.white70),
         filled: true,
-        fillColor: Colors.black.withOpacity(0.35),
+        fillColor: const Color(0xFF081520),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

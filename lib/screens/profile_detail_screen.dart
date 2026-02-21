@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/money_transaction.dart';
 import '../services/transaction_service.dart';
@@ -21,15 +22,21 @@ class ProfileDetailScreen extends StatelessWidget {
         title: Text(personName,
             style: const TextStyle(
                 color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: StreamBuilder<List<MoneyTransaction>>(
@@ -58,7 +65,7 @@ class ProfileDetailScreen extends StatelessWidget {
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
+                    color: Colors.white.withOpacity(0.07),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -203,8 +210,8 @@ class ProfileDetailScreen extends StatelessWidget {
                                             horizontal: 14, vertical: 10),
                                         decoration: BoxDecoration(
                                           color: isRight
-                                              ? const Color(0xFF1B5E20)
-                                              : const Color(0xFF7B1F1F),
+                                              ? const Color(0xFF0D3320)
+                                              : const Color(0xFF2D0F0F),
                                           borderRadius: BorderRadius.only(
                                             topLeft:
                                                 const Radius.circular(16),

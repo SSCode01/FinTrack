@@ -35,7 +35,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2E7D32),
+      backgroundColor: const Color(0xFF0A1628),
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -43,9 +43,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
       extendBody: true,
       bottomNavigationBar: AnimatedNotchBottomBar(
         notchBottomBarController: _controller,
-        color: const Color(0xFF2E7D32),
+        color: const Color(0xFF0A1628),
         showLabel: true,
-        notchColor: const Color(0xFF1B5E20),
+        notchColor: const Color(0xFF0D2137),
         kIconSize: 24,
         kBottomRadius: 20,
         bottomBarItems: const [

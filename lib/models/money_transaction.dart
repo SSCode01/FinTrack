@@ -8,6 +8,7 @@ class MoneyTransaction {
   String note;
   DateTime date;
   bool isPaid;
+  String category;
 
   MoneyTransaction({
     required this.id,
@@ -17,6 +18,7 @@ class MoneyTransaction {
     required this.note,
     required this.date,
     this.isPaid = false,
+    this.category = 'Other',
   });
 
   Map<String, dynamic> toMap() {
@@ -28,6 +30,7 @@ class MoneyTransaction {
       'note': note,
       'date': Timestamp.fromDate(date),
       'isPaid': isPaid,
+      'category': category,
     };
   }
 
@@ -40,6 +43,7 @@ class MoneyTransaction {
       note: map['note'] ?? '',
       date: (map['date'] as Timestamp).toDate(),
       isPaid: map['isPaid'] ?? false,
+      category: map['category'] ?? 'Other',
     );
   }
 }

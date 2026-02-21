@@ -30,7 +30,7 @@ class _SearchScreenState extends State<SearchScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
@@ -61,9 +61,15 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: StreamBuilder<List<MoneyTransaction>>(

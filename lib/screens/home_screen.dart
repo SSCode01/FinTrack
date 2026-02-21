@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import '../utils/format_utils.dart';
+import '../utils/categories.dart';
+import '../utils/toast.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/animated_list_item.dart';
 import '../models/money_transaction.dart';
 import '../services/transaction_service.dart';
 import 'add_transaction_screen.dart';
 import 'search_screen.dart';
 import 'split_bill_screen.dart';
+import 'transaction_action_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -102,7 +106,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        backgroundColor: const Color(0xFF2E7D32).withOpacity(0.85),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+            ),
+          ),
+        ),
         elevation: 0,
         actions: [
           IconButton(
@@ -159,9 +172,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: StreamBuilder<List<MoneyTransaction>>(
@@ -200,18 +219,22 @@ class _HomeScreenState extends State<HomeScreen> {
             }
 
             final grouped = _groupByDate(transactions);
+            int globalIndex = 0;
 
             return ListView(
               padding: const EdgeInsets.only(bottom: 120, top: 8),
               children: [
                 for (final section in sectionOrder)
                   if (grouped.containsKey(section)) ...[
-                    // DATE SEPARATOR
                     _dateSeparator(section),
-
-                    // TRANSACTIONS
-                    ...grouped[section]!.map((txn) =>
-                        _transactionTile(context, txn)),
+                    ...grouped[section]!.map((txn) {
+                      final tile = AnimatedListItem(
+                        index: globalIndex,
+                        child: _transactionTile(context, txn),
+                      );
+                      globalIndex++;
+                      return tile;
+                    }),
                   ],
               ],
             );
@@ -263,64 +286,26 @@ class _HomeScreenState extends State<HomeScreen> {
         : '?';
     final avatarColor = _avatarColor(txn.personName);
 
-    return Slidable(
-      key: ValueKey(txn.id),
-      endActionPane: ActionPane(
-        motion: const ScrollMotion(),
-        children: [
-          SlidableAction(
-            onPressed: (_) {
-              HapticFeedback.lightImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AddTransactionScreen(existingTxn: txn),
-                ),
-              );
-            },
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            icon: Icons.edit,
-            label: 'Edit',
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddTransactionScreen(existingTxn: txn),
           ),
-          SlidableAction(
-            onPressed: (_) async {
-              HapticFeedback.heavyImpact();
-              await TransactionService.deleteTransaction(txn.id);
-            },
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            icon: Icons.delete,
-            label: 'Delete',
-          ),
-        ],
-      ),
-      child: Container(
+        );
+      },
+      onLongPress: () => showTransactionActions(context, txn),
+      child: GlassCard(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.55),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: txn.isCredit
-                ? Colors.green.withOpacity(0.25)
-                : Colors.red.withOpacity(0.25),
-            width: 1,
-          ),
-        ),
+        borderColor: txn.isCredit
+            ? Colors.green.withOpacity(0.3)
+            : Colors.red.withOpacity(0.3),
         child: Column(
           children: [
             ListTile(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AddTransactionScreen(existingTxn: txn),
-                  ),
-                );
-              },
-              contentPadding:
-                  const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               leading: CircleAvatar(
                 backgroundColor: avatarColor,
                 radius: 22,
@@ -363,9 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        txn.note.isNotEmpty
-                            ? txn.note
-                            : 'No note',
+                        txn.note.isNotEmpty ? txn.note : 'No note',
                         style: TextStyle(
                           color: txn.note.isNotEmpty
                               ? Colors.white70
@@ -390,81 +373,109 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // BOTTOM ROW — type label + mark as paid button
+            // BOTTOM ROW
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // TYPE CHIP
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: txn.isCredit
-                          ? Colors.green.withOpacity(0.12)
-                          : Colors.red.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      txn.isCredit ? 'They owe me' : 'I owe them',
-                      style: TextStyle(
-                        color: txn.isCredit
-                            ? Colors.greenAccent
-                            : Colors.redAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-
-                  // MARK AS PAID BUTTON
-                  GestureDetector(
-                    onTap: () async {
-                      HapticFeedback.mediumImpact();
-                      await _markAsPaid(txn);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                '${txn.personName} marked as paid!'),
-                            backgroundColor: const Color(0xFF2E7D32),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.fromLTRB(
-                                16, 0, 16, 80),
-                            duration: const Duration(seconds: 2),
+                  Row(
+                    children: [
+                      // CATEGORY CHIP
+                      Builder(builder: (_) {
+                        final cat = getCategoryByName(txn.category);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: cat.color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(cat.icon, color: cat.color, size: 11),
+                              const SizedBox(width: 4),
+                              Text(
+                                cat.name.split(' ').first,
+                                style: TextStyle(
+                                    color: cat.color,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ],
                           ),
                         );
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.greenAccent.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color:
-                                Colors.greenAccent.withOpacity(0.4)),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.check_circle_outline,
-                              color: Colors.greenAccent, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            'Mark Paid',
-                            style: TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
+                      }),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: txn.isCredit
+                              ? Colors.green.withOpacity(0.12)
+                              : Colors.red.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          txn.isCredit ? 'Owed to me' : 'I owe',
+                          style: TextStyle(
+                            color: txn.isCredit
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
+                  ),
+
+                  // HINT + MARK AS PAID
+                  Row(
+                    children: [
+                      const Text('Hold to edit  ',
+                          style: TextStyle(
+                              color: Colors.white24, fontSize: 10)),
+                      GestureDetector(
+                        onTap: () async {
+                          HapticFeedback.mediumImpact();
+                          await _markAsPaid(txn);
+                          if (context.mounted) {
+                            showToast(
+                              context,
+                              message: '${txn.personName}\nMarked Paid!',
+                              type: ToastType.success,
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.greenAccent.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.check_circle_outline,
+                                  color: Colors.greenAccent, size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                'Mark Paid',
+                                style: TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

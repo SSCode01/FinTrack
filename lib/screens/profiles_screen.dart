@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +7,7 @@ import '../services/transaction_service.dart';
 import '../utils/balance_utils.dart';
 import '../utils/format_utils.dart';
 import 'profile_detail_screen.dart';
+import '../widgets/animated_list_item.dart';
 
 class ProfilesScreen extends StatelessWidget {
   const ProfilesScreen({super.key});
@@ -17,7 +19,7 @@ class ProfilesScreen extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1B3A1F),
+        backgroundColor: const Color(0xFF0D1F2D),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: const [
@@ -91,7 +93,16 @@ class ProfilesScreen extends StatelessWidget {
         title: const Text('Profiles',
             style: TextStyle(
                 color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2E7D32).withOpacity(0.85),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+            ),
+          ),
+        ),
         elevation: 0,
         actions: [
           IconButton(
@@ -103,9 +114,15 @@ class ProfilesScreen extends StatelessWidget {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: StreamBuilder<List<MoneyTransaction>>(
@@ -152,7 +169,7 @@ class ProfilesScreen extends StatelessWidget {
                 final outstanding = calculateBalance(unpaid);
 
                 return Card(
-                  color: Colors.black.withOpacity(0.55),
+                  color: Colors.white.withOpacity(0.07),
                   margin: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 6),
                   shape: RoundedRectangleBorder(

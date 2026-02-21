@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -8,6 +9,7 @@ import '../models/money_transaction.dart';
 import '../services/transaction_service.dart';
 import '../utils/balance_utils.dart';
 import '../utils/format_utils.dart';
+import '../utils/categories.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -231,14 +233,29 @@ class DashboardScreen extends StatelessWidget {
             ],
           ),
         ),
-        backgroundColor: const Color(0xFF2E7D32).withOpacity(0.85),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+            ),
+          ),
+        ),
         elevation: 0,
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: StreamBuilder<List<MoneyTransaction>>(
@@ -252,6 +269,7 @@ class DashboardScreen extends StatelessWidget {
             }
 
             final txns = snapshot.data ?? [];
+            final allTxns = txns;
             final unpaid = txns.where((t) => !t.isPaid).toList();
             final paid = txns.where((t) => t.isPaid).toList();
 
@@ -300,10 +318,10 @@ class DashboardScreen extends StatelessWidget {
                       gradient: LinearGradient(
                         colors: netBalance >= 0
                             ? [
-                                const Color(0xFF2E7D32),
-                                const Color(0xFF1B5E20)
+                                const Color(0xFF1B5E20),
+                                const Color(0xFF0D3320)
                               ]
-                            : [Colors.red.shade800, Colors.red.shade900],
+                            : [const Color(0xFF7B1F1F), const Color(0xFF4A0E0E)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -398,68 +416,98 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
 
-                // PIE CHART
-                if (unpaid.isNotEmpty && totalReceivable + totalPayable > 0)
+                // CATEGORY BREAKDOWN CHART
+                if (allTxns.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.55),
+                        color: Colors.white.withOpacity(0.07),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Receivable vs Payable',
+                          const Text('Spending by Category',
                               style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15)),
                           const SizedBox(height: 16),
-                          SizedBox(
-                            height: 180,
-                            child: PieChart(
-                              PieChartData(
-                                sectionsSpace: 3,
-                                centerSpaceRadius: 40,
-                                sections: [
-                                  if (totalReceivable > 0)
-                                    PieChartSectionData(
-                                      value: totalReceivable,
-                                      color: Colors.green,
-                                      title: 'Receive',
-                                      titleStyle: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold),
-                                      radius: 60,
+                          Builder(builder: (_) {
+                            // Group by category
+                            final Map<String, double> byCategory = {};
+                            for (final t in allTxns) {
+                              byCategory[t.category] =
+                                  (byCategory[t.category] ?? 0) +
+                                      t.amount;
+                            }
+                            final entries = byCategory.entries.toList()
+                              ..sort((a, b) =>
+                                  b.value.compareTo(a.value));
+
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  height: 180,
+                                  child: PieChart(
+                                    PieChartData(
+                                      sectionsSpace: 3,
+                                      centerSpaceRadius: 36,
+                                      sections: entries.map((e) {
+                                        final cat =
+                                            getCategoryByName(e.key);
+                                        return PieChartSectionData(
+                                          value: e.value,
+                                          color: cat.color,
+                                          title: cat.name
+                                              .split(' ')
+                                              .first,
+                                          titleStyle: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight:
+                                                  FontWeight.bold),
+                                          radius: 60,
+                                        );
+                                      }).toList(),
                                     ),
-                                  if (totalPayable > 0)
-                                    PieChartSectionData(
-                                      value: totalPayable,
-                                      color: Colors.redAccent,
-                                      title: 'Pay',
-                                      titleStyle: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold),
-                                      radius: 60,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _legendDot(Colors.green, 'To Receive'),
-                              const SizedBox(width: 20),
-                              _legendDot(Colors.redAccent, 'To Pay'),
-                            ],
-                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                // LEGEND
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 8,
+                                  children: entries.map((e) {
+                                    final cat =
+                                        getCategoryByName(e.key);
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: BoxDecoration(
+                                              color: cat.color,
+                                              shape: BoxShape.circle),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${cat.name.split(' ').first} (${formatAmount(e.value)})',
+                                          style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 11),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -473,7 +521,7 @@ class DashboardScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.55),
+                        color: Colors.white.withOpacity(0.07),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
@@ -603,7 +651,7 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.55),
+        color: Colors.white.withOpacity(0.07),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.3)),
       ),

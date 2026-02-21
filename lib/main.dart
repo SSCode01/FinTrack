@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -12,6 +14,20 @@ void main() async {
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Match status bar to app background
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Color(0xFF0A1628),
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Color(0xFF0A1628),
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
+
+  // Enable Firestore offline caching
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
   runApp(const FinTrackApp());

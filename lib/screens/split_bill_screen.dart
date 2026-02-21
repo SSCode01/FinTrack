@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -120,7 +121,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
         SnackBar(
           content: Text(
               '✓ Split across ${_people.length} people created!'),
-          backgroundColor: const Color(0xFF2E7D32),
+          backgroundColor: const Color(0xFF1B5E20),
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -163,15 +164,21 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
           style: TextStyle(
               color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1B5E20),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bgim.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A1628),
+              Color(0xFF0D2137),
+              Color(0xFF0A1F1A),
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: ListView(
@@ -318,7 +325,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                             prefixIcon: const Icon(Icons.person_add,
                                 color: Colors.white54),
                             filled: true,
-                            fillColor: Colors.black.withOpacity(0.3),
+                            fillColor: const Color(0xFF081520),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -484,7 +491,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                                         color: Colors.white38),
                                     filled: true,
                                     fillColor:
-                                        Colors.black.withOpacity(0.3),
+                                        const Color(0xFF081520),
                                     border: OutlineInputBorder(
                                       borderRadius:
                                           BorderRadius.circular(8),
@@ -527,7 +534,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.55),
+                  color: Colors.white.withOpacity(0.07),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                       color: const Color(0xFFFFD700).withOpacity(0.3)),
@@ -567,7 +574,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _createTransactions,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
+                          backgroundColor: const Color(0xFF1B5E20),
                           padding:
                               const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -614,7 +621,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.55),
+        color: Colors.white.withOpacity(0.07),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -655,7 +662,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
         labelStyle: const TextStyle(color: Colors.white70),
         prefixIcon: Icon(icon, color: Colors.white70),
         filled: true,
-        fillColor: Colors.black.withOpacity(0.35),
+        fillColor: const Color(0xFF081520),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
