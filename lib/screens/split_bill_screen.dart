@@ -18,8 +18,10 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   final _noteController = TextEditingController();
   final _nameController = TextEditingController();
 
-  List<_SplitPerson> _people = [];
+  List<_SplitPerson> _people = [_SplitPerson(name: 'Me', isMe: true)];
   bool _equalSplit = true;
+  bool _paidByMe = true;
+  String? _paidByPersonName; // selected payer when _paidByMe = false
   bool _isLoading = false;
 
   double get _totalAmount =>
@@ -60,75 +62,95 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
 
   Future<void> _createTransactions() async {
     if (_totalAmount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid total amount'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter a valid total amount'),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ));
       return;
     }
-    if (_people.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add at least one person'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+
+    final others = _people.where((p) => !p.isMe).toList();
+    if (others.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Add at least one other person'),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ));
       return;
     }
+
+    if (!_paidByMe && _paidByPersonName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Select who paid the bill'),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
     if (!_equalSplit && _remaining.abs() > 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Amounts don\'t add up. Remaining: ${formatAmount(_remaining)}'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Amounts don\'t add up. Remaining: ${formatAmount(_remaining)}'),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ));
       return;
     }
 
     HapticFeedback.mediumImpact();
     setState(() => _isLoading = true);
 
-    for (final person in _people) {
-      final amount =
-          _equalSplit ? _amountPerPerson : (person.customAmount ?? 0);
-      if (amount <= 0) continue;
+    final note = _noteController.text.trim().isNotEmpty
+        ? _noteController.text.trim()
+        : 'Split bill';
 
-      final txn = MoneyTransaction(
+    if (_paidByMe) {
+      // Mode 1: I paid — create "they owe me" transactions for each other person
+      for (final person in others) {
+        final amount = _equalSplit ? _amountPerPerson : (person.customAmount ?? 0);
+        if (amount <= 0) continue;
+        await TransactionService.addTransaction(MoneyTransaction(
+          id: const Uuid().v4(),
+          personName: person.name,
+          amount: double.parse(amount.toStringAsFixed(2)),
+          isCredit: true, // they owe me
+          note: note,
+          date: DateTime.now(),
+          isPaid: false,
+        ));
+      }
+    } else {
+      // Mode 2: Someone else paid — create one "I owe them" transaction for my share
+      final meShare = _equalSplit
+          ? _amountPerPerson
+          : (_people.firstWhere((p) => p.isMe).customAmount ?? _amountPerPerson);
+      await TransactionService.addTransaction(MoneyTransaction(
         id: const Uuid().v4(),
-        personName: person.name,
-        amount: double.parse(amount.toStringAsFixed(2)),
-        isCredit: true, // they owe me their share
-        note: _noteController.text.trim().isNotEmpty
-            ? _noteController.text.trim()
-            : 'Split bill',
+        personName: _paidByPersonName!,
+        amount: double.parse(meShare.toStringAsFixed(2)),
+        isCredit: false, // I owe them
+        note: note,
         date: DateTime.now(),
         isPaid: false,
-      );
-      await TransactionService.addTransaction(txn);
+      ));
     }
 
     HapticFeedback.heavyImpact();
 
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '✓ Split across ${_people.length} people created!'),
-          backgroundColor: const Color(0xFF1B5E20),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      final msg = _paidByMe
+          ? '✓ Split across ${others.length} people created!'
+          : '✓ Added: you owe $_paidByPersonName ${formatAmount(_equalSplit ? _amountPerPerson : (_people.firstWhere((p) => p.isMe).customAmount ?? _amountPerPerson))}';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: const Color(0xFF1B5E20),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+        duration: const Duration(seconds: 3),
+      ));
     }
   }
 
@@ -304,6 +326,174 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
 
             const SizedBox(height: 16),
 
+            // PAID BY
+            _sectionCard(
+              title: 'Paid By',
+              icon: Icons.payments_outlined,
+              child: Column(
+                children: [
+                  // Me vs Someone else toggle
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _paidByMe = true;
+                              _paidByPersonName = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _paidByMe
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _paidByMe
+                                    ? const Color(0xFFFFD700)
+                                    : Colors.white24,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.person,
+                                    color: _paidByMe
+                                        ? const Color(0xFFFFD700)
+                                        : Colors.white54),
+                                const SizedBox(height: 4),
+                                Text('Me',
+                                    style: TextStyle(
+                                        color: _paidByMe
+                                            ? const Color(0xFFFFD700)
+                                            : Colors.white54,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _paidByMe = false);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: !_paidByMe
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: !_paidByMe
+                                    ? const Color(0xFFFFD700)
+                                    : Colors.white24,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.group,
+                                    color: !_paidByMe
+                                        ? const Color(0xFFFFD700)
+                                        : Colors.white54),
+                                const SizedBox(height: 4),
+                                Text('Someone else',
+                                    style: TextStyle(
+                                        color: !_paidByMe
+                                            ? const Color(0xFFFFD700)
+                                            : Colors.white54,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Person picker — shown only when "someone else" is selected
+                  if (!_paidByMe) ...[
+                    const SizedBox(height: 12),
+                    if (_people.where((p) => !p.isMe).isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                            SizedBox(width: 8),
+                            Text('Add people below first',
+                                style: TextStyle(color: Colors.orange, fontSize: 13)),
+                          ],
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _people.where((p) => !p.isMe).map((person) {
+                          final selected = _paidByPersonName == person.name;
+                          return GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _paidByPersonName = person.name);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? const Color(0xFFFFD700).withOpacity(0.15)
+                                    : Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: selected
+                                      ? const Color(0xFFFFD700)
+                                      : Colors.white24,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (selected)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 6),
+                                      child: Icon(Icons.check_circle,
+                                          color: Color(0xFFFFD700), size: 14),
+                                    ),
+                                  Text(person.name,
+                                      style: TextStyle(
+                                          color: selected
+                                              ? const Color(0xFFFFD700)
+                                              : Colors.white70,
+                                          fontWeight: selected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // PEOPLE CARD
             _sectionCard(
               title: 'People',
@@ -433,79 +623,104 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                       final person = _people[i];
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
+                          color: person.isMe
+                              ? const Color(0xFFFFD700).withOpacity(0.07)
+                              : Colors.white.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: person.isMe
+                                ? const Color(0xFFFFD700).withOpacity(0.35)
+                                : Colors.white.withOpacity(0.08),
+                          ),
                         ),
                         child: Row(
                           children: [
                             // AVATAR
                             CircleAvatar(
-                              backgroundColor: _avatarColor(person.name),
+                              backgroundColor: person.isMe
+                                  ? const Color(0xFFFFD700)
+                                  : _avatarColor(person.name),
                               radius: 18,
                               child: Text(
                                 person.name[0].toUpperCase(),
-                                style: const TextStyle(
-                                    color: Colors.white,
+                                style: TextStyle(
+                                    color: person.isMe ? Colors.black : Colors.white,
                                     fontWeight: FontWeight.bold),
                               ),
                             ),
                             const SizedBox(width: 10),
 
-                            // NAME
+                            // NAME + ME BADGE
                             Expanded(
-                              child: Text(
-                                person.name,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    person.name,
+                                    style: TextStyle(
+                                        color: person.isMe
+                                            ? const Color(0xFFFFD700)
+                                            : Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14),
+                                  ),
+                                  if (person.isMe) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFD700).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text('you',
+                                          style: TextStyle(
+                                              color: Color(0xFFFFD700),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
 
-                            // AMOUNT — equal or custom
+                            // AMOUNT
                             if (_equalSplit)
-                              Text(
-                                _totalAmount > 0
-                                    ? formatAmount(_amountPerPerson)
-                                    : '—',
-                                style: const TextStyle(
-                                  color: Color(0xFFFFD700),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    _totalAmount > 0 ? formatAmount(_amountPerPerson) : '—',
+                                    style: const TextStyle(
+                                        color: Color(0xFFFFD700),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14),
+                                  ),
+                                  if (person.isMe)
+                                    const Text('your share',
+                                        style: TextStyle(color: Colors.white38, fontSize: 10)),
+                                ],
                               )
                             else
                               SizedBox(
                                 width: 90,
                                 child: TextField(
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 14),
+                                  style: const TextStyle(color: Colors.white, fontSize: 14),
                                   textAlign: TextAlign.center,
                                   decoration: InputDecoration(
                                     hintText: '0',
-                                    hintStyle: const TextStyle(
-                                        color: Colors.white38),
+                                    hintStyle: const TextStyle(color: Colors.white38),
                                     filled: true,
-                                    fillColor:
-                                        const Color(0xFF081520),
+                                    fillColor: const Color(0xFF081520),
                                     border: OutlineInputBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(8),
                                       borderSide: BorderSide.none,
                                     ),
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(
-                                            vertical: 8),
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
                                   ),
                                   onChanged: (val) {
-                                    setState(() {
-                                      _people[i].customAmount =
-                                          double.tryParse(val);
-                                    });
+                                    setState(() => _people[i].customAmount = double.tryParse(val));
                                   },
                                 ),
                               ),
@@ -515,8 +730,11 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                             // REMOVE
                             GestureDetector(
                               onTap: () => _removePerson(i),
-                              child: const Icon(Icons.remove_circle,
-                                  color: Colors.redAccent, size: 20),
+                              child: Icon(
+                                person.isMe ? Icons.person_remove_outlined : Icons.remove_circle,
+                                color: person.isMe ? Colors.white38 : Colors.redAccent,
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),
@@ -531,7 +749,9 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
 
             // SUMMARY + CREATE BUTTON
             if (_people.isNotEmpty && _totalAmount > 0)
-              Container(
+              Builder(builder: (_) {
+                final others = _people.where((p) => !p.isMe).toList();
+                return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.07),
@@ -545,8 +765,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Total Bill',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 13)),
+                            style: TextStyle(color: Colors.white70, fontSize: 13)),
                         Text(formatAmount(_totalAmount),
                             style: const TextStyle(
                                 color: Colors.white,
@@ -559,13 +778,48 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Splitting between',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 13)),
-                        Text('${_people.length} people',
+                            style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text('${_people.length} people (incl. you)',
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Your share',
+                            style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text(
+                          formatAmount(_equalSplit
+                              ? _amountPerPerson
+                              : (_people.firstWhere((p) => p.isMe,
+                                      orElse: () => _SplitPerson(name: 'Me', isMe: true))
+                                  .customAmount ?? 0)),
+                          style: const TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Paid by',
+                            style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text(
+                          _paidByMe ? 'You' : (_paidByPersonName ?? 'Not selected'),
+                          style: TextStyle(
+                              color: _paidByMe || _paidByPersonName != null
+                                  ? Colors.white
+                                  : Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
+                        ),
                       ],
                     ),
                     const Divider(color: Colors.white24, height: 20),
@@ -575,36 +829,33 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         onPressed: _isLoading ? null : _createTransactions,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1B5E20),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14)),
                         ),
                         icon: _isLoading
                             ? const SizedBox(
-                                width: 18,
-                                height: 18,
+                                width: 18, height: 18,
                                 child: CircularProgressIndicator(
-                                    color: Color(0xFFFFD700),
-                                    strokeWidth: 2),
-                              )
-                            : const Icon(Icons.call_split,
-                                color: Color(0xFFFFD700)),
+                                    color: Color(0xFFFFD700), strokeWidth: 2))
+                            : const Icon(Icons.call_split, color: Color(0xFFFFD700)),
                         label: Text(
                           _isLoading
                               ? 'Creating...'
-                              : 'Create ${_people.length} Transactions',
+                              : _paidByMe
+                                  ? 'Create ${others.length} Transaction${others.length != 1 ? 's' : ''}'
+                                  : 'Add: I owe ${_paidByPersonName ?? '...'}',
                           style: const TextStyle(
-                            color: Color(0xFFFFD700),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                              color: Color(0xFFFFD700),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
+              );
+              }),
 
             const SizedBox(height: 40),
           ],
@@ -674,7 +925,8 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
 
 class _SplitPerson {
   final String name;
+  final bool isMe;
   double? customAmount;
 
-  _SplitPerson({required this.name, this.customAmount});
+  _SplitPerson({required this.name, this.isMe = false, this.customAmount});
 }

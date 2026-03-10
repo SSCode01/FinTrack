@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -11,8 +13,21 @@ import '../utils/balance_utils.dart';
 import '../utils/format_utils.dart';
 import '../utils/categories.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   String _pdfAmount(double amount) {
     // PDF default fonts don't support ₹ symbol, use Rs. instead
@@ -293,7 +308,11 @@ class DashboardScreen extends StatelessWidget {
             final chartData = topPersons.take(5).toList();
 
             return ListView(
-              padding: const EdgeInsets.only(bottom: 120),
+              controller: _scrollController,
+              padding: EdgeInsets.only(
+                bottom: 100,
+                top: MediaQuery.of(context).padding.top > 0 ? 0 : 8,
+              ),
               children: [
                 // GREETING
                 Padding(
@@ -513,101 +532,15 @@ class DashboardScreen extends StatelessWidget {
                     ),
                   ),
 
-                // BAR CHART - TOP PERSONS
-                if (chartData.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.07),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Top Outstanding Balances',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15)),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            height: 200,
-                            child: BarChart(
-                              BarChartData(
-                                alignment: BarChartAlignment.spaceAround,
-                                maxY: chartData
-                                    .map((e) => e.value.abs())
-                                    .reduce((a, b) => a > b ? a : b) *
-                                    1.2,
-                                barTouchData:
-                                    BarTouchData(enabled: false),
-                                titlesData: FlTitlesData(
-                                  leftTitles: const AxisTitles(
-                                      sideTitles:
-                                          SideTitles(showTitles: false)),
-                                  rightTitles: const AxisTitles(
-                                      sideTitles:
-                                          SideTitles(showTitles: false)),
-                                  topTitles: const AxisTitles(
-                                      sideTitles:
-                                          SideTitles(showTitles: false)),
-                                  bottomTitles: AxisTitles(
-                                    sideTitles: SideTitles(
-                                      showTitles: true,
-                                      getTitlesWidget: (value, meta) {
-                                        final idx = value.toInt();
-                                        if (idx >= chartData.length)
-                                          return const SizedBox();
-                                        final name =
-                                            chartData[idx].key;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                              top: 4),
-                                          child: Text(
-                                            name.length > 6
-                                                ? '${name.substring(0, 6)}...'
-                                                : name,
-                                            style: const TextStyle(
-                                                color: Colors.white60,
-                                                fontSize: 10),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                gridData:
-                                    const FlGridData(show: false),
-                                borderData: FlBorderData(show: false),
-                                barGroups: chartData
-                                    .asMap()
-                                    .entries
-                                    .map((e) => BarChartGroupData(
-                                          x: e.key,
-                                          barRods: [
-                                            BarChartRodData(
-                                              toY: e.value.value.abs(),
-                                              color: e.value.value >= 0
-                                                  ? Colors.green
-                                                  : Colors.redAccent,
-                                              width: 20,
-                                              borderRadius:
-                                                  const BorderRadius.vertical(
-                                                      top: Radius.circular(6)),
-                                            ),
-                                          ],
-                                        ))
-                                    .toList(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                // CALENDAR
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  child: _TransactionCalendar(
+                    allTxns: allTxns,
+                    parentScrollController: _scrollController,
                   ),
+                ),
 
                 // EXPORT PDF BUTTON
                 Padding(
@@ -696,6 +629,434 @@ class DashboardScreen extends StatelessWidget {
             style:
                 const TextStyle(color: Colors.white60, fontSize: 12)),
       ],
+    );
+  }
+}
+
+class _CalendarLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _CalendarLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      ],
+    );
+  }
+}
+
+// ── Isolated calendar widget — only this rebuilds on date tap ──────────────
+class _TransactionCalendar extends StatefulWidget {
+  final List<MoneyTransaction> allTxns;
+  final ScrollController parentScrollController;
+  const _TransactionCalendar({
+    required this.allTxns,
+    required this.parentScrollController,
+  });
+
+  @override
+  State<_TransactionCalendar> createState() => _TransactionCalendarState();
+}
+
+class _TransactionCalendarState extends State<_TransactionCalendar> {
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
+  Future<void> _pickYear(BuildContext context) async {
+    final currentYear = _focusedDay.year;
+    final years = List.generate(
+      currentYear - 1899,
+      (i) => currentYear - i,
+    );
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: 320,
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D1F2D),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: const Color(0xFFFFD700).withOpacity(0.25)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('Select Year',
+                  style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: years.length,
+                itemBuilder: (ctx, i) {
+                  final year = years[i];
+                  final isSelected = year == currentYear;
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _focusedDay = DateTime(year, _focusedDay.month, 1);
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFFFFD700).withOpacity(0.15)
+                            : Colors.white.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFFFFD700).withOpacity(0.5)
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '$year',
+                            style: TextStyle(
+                              color: isSelected
+                                  ? const Color(0xFFFFD700)
+                                  : Colors.white70,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle,
+                                color: Color(0xFFFFD700), size: 18),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Map<DateTime, List<MoneyTransaction>> events = {};
+    for (final t in widget.allTxns) {
+      final day = DateTime(t.date.year, t.date.month, t.date.day);
+      events.putIfAbsent(day, () => []).add(t);
+    }
+
+    final selectedTxns = _selectedDay == null
+        ? <MoneyTransaction>[]
+        : widget.allTxns.where((t) {
+            final d = DateTime(t.date.year, t.date.month, t.date.day);
+            return d == DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
+          }).toList();
+
+    return _ScrollPassthrough(
+      scrollController: widget.parentScrollController,
+      child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Text('Transaction Calendar',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15)),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 8),
+            child: Row(
+              children: [
+                _CalendarLegend(color: Colors.greenAccent, label: 'Money in'),
+                SizedBox(width: 16),
+                _CalendarLegend(color: Colors.redAccent, label: 'Money out'),
+                SizedBox(width: 16),
+                _CalendarLegend(color: Color(0xFFFFD700), label: 'Both'),
+              ],
+            ),
+          ),
+
+          TableCalendar<MoneyTransaction>(
+            firstDay: DateTime.utc(1900, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            pageJumpingEnabled: true,
+            eventLoader: (day) {
+              final key = DateTime(day.year, day.month, day.day);
+              return events[key] ?? [];
+            },
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            onPageChanged: (focusedDay) {
+              setState(() => _focusedDay = focusedDay);
+            },
+            calendarStyle: CalendarStyle(
+              outsideDaysVisible: false,
+              defaultTextStyle: const TextStyle(color: Colors.white70),
+              weekendTextStyle: const TextStyle(color: Colors.white54),
+              selectedTextStyle: const TextStyle(
+                  color: Colors.black, fontWeight: FontWeight.bold),
+              selectedDecoration: const BoxDecoration(
+                color: Color(0xFFFFD700),
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: const TextStyle(
+                  color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+              todayDecoration: BoxDecoration(
+                border: Border.all(
+                    color: const Color(0xFFFFD700), width: 1.5),
+                shape: BoxShape.circle,
+              ),
+              outsideTextStyle: const TextStyle(color: Colors.white24),
+              markersMaxCount: 0,
+              cellMargin: const EdgeInsets.all(4),
+            ),
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white70),
+              rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white70),
+            ),
+            daysOfWeekStyle: const DaysOfWeekStyle(
+              weekdayStyle: TextStyle(color: Colors.white54, fontSize: 12),
+              weekendStyle: TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+            calendarBuilders: CalendarBuilders(
+              headerTitleBuilder: (context, day) {
+                const months = [
+                  "January", "February", "March", "April",
+                  "May", "June", "July", "August",
+                  "September", "October", "November", "December"
+                ];
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "${months[day.month - 1]} ",
+                      style: const TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15),
+                    ),
+                    GestureDetector(
+                      onTap: () => _pickYear(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFD700).withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "${day.year}",
+                              style: const TextStyle(
+                                  color: Color(0xFFFFD700),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_drop_down,
+                                color: Color(0xFFFFD700), size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+              markerBuilder: (context, day, dayEvents) {
+                if (dayEvents.isEmpty) return const SizedBox();
+                final hasCredit = dayEvents.any((t) => t.isCredit);
+                final hasDebit = dayEvents.any((t) => !t.isCredit);
+                final dotColor = (hasCredit && hasDebit)
+                    ? const Color(0xFFFFD700)
+                    : hasCredit
+                        ? Colors.greenAccent
+                        : Colors.redAccent;
+                return Positioned(
+                  bottom: 4,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                        color: dotColor, shape: BoxShape.circle),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // SELECTED DAY TRANSACTIONS
+          if (_selectedDay != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Text(
+                selectedTxns.isEmpty
+                    ? 'No transactions on ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}'
+                    : '${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year} — ${selectedTxns.length} transaction${selectedTxns.length > 1 ? 's' : ''}',
+                style: TextStyle(
+                  color: selectedTxns.isEmpty
+                      ? Colors.white38
+                      : const Color(0xFFFFD700),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            if (selectedTxns.isNotEmpty)
+              SizedBox(
+                height: selectedTxns.length == 1
+                    ? 72
+                    : selectedTxns.length == 2
+                        ? 144
+                        : 220, // fixed height, scrollable inside
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: selectedTxns.length,
+                  itemBuilder: (context, i) {
+                    final t = selectedTxns[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 3),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: t.isCredit
+                                ? Colors.greenAccent.withOpacity(0.3)
+                                : Colors.redAccent.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              t.isCredit
+                                  ? Icons.arrow_downward
+                                  : Icons.arrow_upward,
+                              color: t.isCredit
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(t.personName,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13)),
+                                  if (t.note.isNotEmpty)
+                                    Text(t.note,
+                                        style: const TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${t.isCredit ? '+' : '-'}${formatAmount(t.amount)}',
+                              style: TextStyle(
+                                color: t.isCredit
+                                    ? Colors.greenAccent
+                                    : Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ],
+      ),
+    ), // Container
+    ); // _ScrollPassthrough
+  }
+}
+
+// Passes vertical scroll gestures up to the parent ListView
+class _ScrollPassthrough extends StatelessWidget {
+  final Widget child;
+  final ScrollController scrollController;
+  const _ScrollPassthrough({
+    required this.child,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerMove: (event) {
+        if (event.delta.dy.abs() > event.delta.dx.abs()) {
+          if (scrollController.hasClients) {
+            final current = scrollController.offset;
+            final newOffset = (current - event.delta.dy)
+                .clamp(0.0, scrollController.position.maxScrollExtent);
+            scrollController.jumpTo(newOffset);
+          }
+        }
+      },
+      child: child,
     );
   }
 }

@@ -25,6 +25,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   bool isPaid = false;
   bool _isLoading = false;
   String _selectedCategory = 'Other';
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       isCredit = widget.existingTxn!.isCredit;
       isPaid = widget.existingTxn!.isPaid;
       _selectedCategory = widget.existingTxn!.category;
+      _selectedDate = widget.existingTxn!.date;
     }
   }
 
@@ -60,7 +62,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       amount: amount,
       isCredit: isCredit,
       note: _noteController.text.trim(),
-      date: DateTime.now(),
+      date: _selectedDate,
       isPaid: isPaid,
       category: _selectedCategory,
     );
@@ -159,6 +161,64 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         controller: _noteController,
                         label: 'Note',
                         icon: Icons.notes),
+
+                    const SizedBox(height: 14),
+
+                    // DATE PICKER
+                    GestureDetector(
+                      onTap: () async {
+                        HapticFeedback.lightImpact();
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Color(0xFFFFD700),
+                                  onPrimary: Colors.black,
+                                  surface: Color(0xFF0D1F2D),
+                                  onSurface: Colors.white,
+                                ),
+                                dialogBackgroundColor:
+                                    const Color(0xFF0A1628),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedDate = picked);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today,
+                                color: Colors.white70, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down,
+                                color: Colors.white54),
+                          ],
+                        ),
+                      ),
+                    ),
 
                     const SizedBox(height: 20),
 

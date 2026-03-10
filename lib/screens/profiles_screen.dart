@@ -8,6 +8,7 @@ import '../utils/balance_utils.dart';
 import '../utils/format_utils.dart';
 import 'profile_detail_screen.dart';
 import '../widgets/animated_list_item.dart';
+import 'settings_screen.dart';
 
 class ProfilesScreen extends StatelessWidget {
   const ProfilesScreen({super.key});
@@ -106,9 +107,16 @@ class ProfilesScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
-            tooltip: 'Sign Out',
-            icon: const Icon(Icons.logout, color: Colors.white70),
-            onPressed: () => _logout(context),
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const SettingsScreen()),
+              );
+            },
           ),
         ],
       ),

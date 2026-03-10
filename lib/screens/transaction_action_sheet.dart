@@ -14,6 +14,7 @@ Future<void> showTransactionActions(
   await showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
+    isScrollControlled: true,
     builder: (ctx) => _TransactionActionSheet(txn: txn, parentContext: context),
   );
 }
@@ -147,10 +148,17 @@ class _TransactionActionSheet extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.07),
+        color: const Color(0xFF0D1F2D),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-            color: const Color(0xFFFFD700).withOpacity(0.2)),
+            color: const Color(0xFFFFD700).withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.6),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -330,13 +338,13 @@ class _TransactionActionSheet extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isDestructive
-              ? Colors.red.withOpacity(0.08)
-              : Colors.white.withOpacity(0.05),
+              ? Colors.red.withOpacity(0.12)
+              : const Color(0xFF162535),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isDestructive
-                ? Colors.red.withOpacity(0.2)
-                : Colors.white.withOpacity(0.08),
+                ? Colors.red.withOpacity(0.3)
+                : Colors.white.withOpacity(0.1),
           ),
         ),
         child: Row(
