@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,18 +63,39 @@ class SplashWrapper extends StatefulWidget {
 
 class _SplashWrapperState extends State<SplashWrapper> {
   bool _showSplash = true;
+  bool _isFirstLaunch = false;
+  bool _prefsLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      if (mounted) setState(() => _showSplash = false);
-    });
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Load prefs and splash timer in parallel
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('onboarding_seen') ?? false;
+    if (!seen) {
+      await prefs.setBool('onboarding_seen', true);
+    }
+    if (mounted) {
+      setState(() {
+        _isFirstLaunch = !seen;
+        _prefsLoaded = true;
+      });
+    }
+
+    await Future.delayed(const Duration(milliseconds: 2200));
+    if (mounted) setState(() => _showSplash = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_showSplash) return const SplashScreen();
+    if (_showSplash || !_prefsLoaded) return const SplashScreen();
+
+    // First ever launch → show onboarding
+    if (_isFirstLaunch) return const OnboardingScreen();
 
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),

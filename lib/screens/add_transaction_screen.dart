@@ -43,13 +43,39 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   Future<void> _saveTransaction() async {
     final name = _nameController.text.trim();
-    final amount = double.tryParse(_amountController.text);
-    if (name.isEmpty || amount == null) {
+    final amountText = _amountController.text.trim();
+    final amount = double.tryParse(amountText);
+
+    if (name.isEmpty) {
       HapticFeedback.heavyImpact();
       showToast(context,
-          message: 'Please fill in\nname and amount',
+          message: 'Please enter\na person name',
+          type: ToastType.error,
+          icon: Icons.person_off_outlined);
+      return;
+    }
+    if (amountText.isEmpty || amount == null) {
+      HapticFeedback.heavyImpact();
+      showToast(context,
+          message: 'Please enter\na valid amount',
           type: ToastType.error,
           icon: Icons.error_outline_rounded);
+      return;
+    }
+    if (amount <= 0) {
+      HapticFeedback.heavyImpact();
+      showToast(context,
+          message: 'Amount must be\ngreater than 0',
+          type: ToastType.error,
+          icon: Icons.error_outline_rounded);
+      return;
+    }
+    if (amount > 10000000) {
+      HapticFeedback.heavyImpact();
+      showToast(context,
+          message: 'Amount seems\ntoo large',
+          type: ToastType.warning,
+          icon: Icons.warning_amber_outlined);
       return;
     }
 
@@ -155,7 +181,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         controller: _amountController,
                         label: 'Amount',
                         icon: Icons.currency_rupee,
-                        keyboardType: TextInputType.number),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                        ]),
                     const SizedBox(height: 14),
                     _buildField(
                         controller: _noteController,
@@ -405,10 +434,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     required String label,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,

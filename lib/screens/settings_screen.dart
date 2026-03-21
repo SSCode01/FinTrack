@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../utils/toast.dart';
+import '../models/money_transaction.dart';
+import '../services/transaction_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,16 +16,237 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _appVersion = '...';
+  bool _isBackingUp = false;
+  bool _isRestoring = false;
+  String? _lastBackupTime;
 
   @override
   void initState() {
     super.initState();
     _loadVersion();
+    _loadLastBackupTime();
   }
 
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (mounted) setState(() => _appVersion = '${info.version} (${info.buildNumber})');
+  }
+
+  Future<void> _loadLastBackupTime() async {
+    final uid = _user?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('backups')
+          .doc('latest')
+          .get();
+      if (doc.exists && mounted) {
+        final ts = doc.data()?['backedUpAt'] as Timestamp?;
+        if (ts != null) {
+          final dt = ts.toDate();
+          setState(() => _lastBackupTime =
+              '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}');
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _backup() async {
+    final uid = _user?.uid;
+    if (uid == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0D1F2D),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Backup Transactions',
+            style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+        content: const Text(
+            'This will save a snapshot of all your current transactions. Any previous backup will be overwritten.',
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Backup', style: TextStyle(color: Color(0xFFFFD700)))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isBackingUp = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      // Fetch all current transactions
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('transactions')
+          .get();
+
+      final txnList = snapshot.docs.map((d) => d.data()).toList();
+
+      // Save as 'latest' backup document
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('backups')
+          .doc('latest')
+          .set({
+        'backedUpAt': FieldValue.serverTimestamp(),
+        'count': txnList.length,
+        'transactions': txnList,
+      });
+
+      await _loadLastBackupTime();
+      HapticFeedback.heavyImpact();
+      if (mounted) {
+        showToast(context,
+            message: '${txnList.length} transactions\nbacked up!',
+            type: ToastType.success,
+            icon: Icons.cloud_done_outlined);
+      }
+    } catch (e) {
+      if (mounted) {
+        showToast(context,
+            message: 'Backup failed.\nTry again.',
+            type: ToastType.error,
+            icon: Icons.error_outline);
+      }
+    } finally {
+      if (mounted) setState(() => _isBackingUp = false);
+    }
+  }
+
+  Future<void> _restore() async {
+    final uid = _user?.uid;
+    if (uid == null) return;
+
+    // Check if backup exists first
+    final backupDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('backups')
+        .doc('latest')
+        .get();
+
+    if (!backupDoc.exists) {
+      if (mounted) {
+        showToast(context,
+            message: 'No backup found.\nCreate one first.',
+            type: ToastType.warning,
+            icon: Icons.warning_amber_outlined);
+      }
+      return;
+    }
+
+    final backupData = backupDoc.data()!;
+    final count = backupData['count'] ?? 0;
+    final ts = backupData['backedUpAt'] as Timestamp?;
+    final dateStr = ts != null
+        ? '${ts.toDate().day}/${ts.toDate().month}/${ts.toDate().year}'
+        : 'unknown date';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0D1F2D),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Restore Transactions',
+            style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Restore $count transactions from $dateStr?',
+                style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.withOpacity(0.4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.orange, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'All current transactions will be replaced.',
+                      style: TextStyle(color: Colors.orange, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Restore', style: TextStyle(color: Colors.orange))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isRestoring = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      final txnCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('transactions');
+
+      // Delete all current transactions
+      final existing = await txnCollection.get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in existing.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // Restore from backup using smaller batches (Firestore limit = 500)
+      final txnList = List<Map<String, dynamic>>.from(backupData['transactions'] ?? []);
+      for (int i = 0; i < txnList.length; i += 400) {
+        final chunk = txnList.sublist(i, i + 400 > txnList.length ? txnList.length : i + 400);
+        final restoreBatch = FirebaseFirestore.instance.batch();
+        for (final txnData in chunk) {
+          final ref = txnCollection.doc(txnData['id'] as String);
+          restoreBatch.set(ref, txnData);
+        }
+        await restoreBatch.commit();
+      }
+
+      HapticFeedback.heavyImpact();
+      if (mounted) {
+        showToast(context,
+            message: '${txnList.length} transactions\nrestored!',
+            type: ToastType.success,
+            icon: Icons.restore);
+      }
+    } catch (e) {
+      if (mounted) {
+        showToast(context,
+            message: 'Restore failed.\nTry again.',
+            type: ToastType.error,
+            icon: Icons.error_outline);
+      }
+    } finally {
+      if (mounted) setState(() => _isRestoring = false);
+    }
   }
 
   User? get _user => FirebaseAuth.instance.currentUser;
@@ -374,6 +598,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirm == true) {
       await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     }
   }
 
@@ -552,6 +779,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
 
+            const SizedBox(height: 10),
+
+            _tile(
+              icon: Icons.cloud_upload_outlined,
+              iconColor: Colors.blueAccent,
+              title: 'Backup Transactions',
+              subtitle: _lastBackupTime != null
+                  ? 'Last backup: $_lastBackupTime'
+                  : 'No backup yet',
+              trailing: _isBackingUp
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          color: Color(0xFFFFD700), strokeWidth: 2))
+                  : null,
+              onTap: _isBackingUp ? null : _backup,
+            ),
+
+            const SizedBox(height: 10),
+
+            _tile(
+              icon: Icons.cloud_download_outlined,
+              iconColor: Colors.orange,
+              title: 'Restore Transactions',
+              subtitle: _lastBackupTime != null
+                  ? 'Restore from $_lastBackupTime'
+                  : 'No backup available',
+              trailing: _isRestoring
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          color: Color(0xFFFFD700), strokeWidth: 2))
+                  : null,
+              onTap: _isRestoring ? null : _restore,
+            ),
+
             const SizedBox(height: 24),
 
             // ── ABOUT ─────────────────────────────────────────────────────
@@ -655,6 +918,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String subtitle,
     required VoidCallback? onTap,
     bool isDestructive = false,
+    Widget? trailing,
   }) {
     return GestureDetector(
       onTap: onTap != null
@@ -703,7 +967,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            if (onTap != null)
+            if (trailing != null)
+              trailing
+            else if (onTap != null)
               Icon(Icons.chevron_right,
                   color: isDestructive
                       ? Colors.redAccent.withOpacity(0.5)

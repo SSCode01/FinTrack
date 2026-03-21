@@ -200,20 +200,57 @@ class _HomeScreenState extends State<HomeScreen> {
 
             if (transactions.isEmpty) {
               return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.receipt_long,
-                        color: Colors.white24, size: 72),
-                    const SizedBox(height: 16),
-                    const Text('No active transactions',
-                        style: TextStyle(
-                            color: Colors.white60, fontSize: 18)),
-                    const SizedBox(height: 8),
-                    const Text('Tap + to add one',
-                        style: TextStyle(
-                            color: Colors.white38, fontSize: 13)),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Illustrated wallet SVG
+                      SizedBox(
+                        width: 160,
+                        height: 140,
+                        child: CustomPaint(painter: _EmptyWalletPainter()),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('All settled up!',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      const Text(
+                          'No active transactions yet.\nTap + to record who owes you\nor who you owe.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 14,
+                              height: 1.6)),
+                      const SizedBox(height: 28),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: const Color(0xFFFFD700).withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add_circle_outline,
+                                color: Color(0xFFFFD700), size: 16),
+                            SizedBox(width: 8),
+                            Text('Add your first transaction',
+                                style: TextStyle(
+                                    color: Color(0xFFFFD700),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -485,4 +522,91 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+class _EmptyWalletPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Wallet body
+    final walletPaint = Paint()
+      ..color = const Color(0xFF1B3A4B)
+      ..style = PaintingStyle.fill;
+    final walletRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.1, h * 0.2, w * 0.8, h * 0.65),
+        const Radius.circular(18));
+    canvas.drawRRect(walletRect, walletPaint);
+
+    // Wallet top flap
+    final flapPaint = Paint()
+      ..color = const Color(0xFF2E7D32)
+      ..style = PaintingStyle.fill;
+    final flapRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.1, h * 0.15, w * 0.8, h * 0.2),
+        const Radius.circular(14));
+    canvas.drawRRect(flapRect, flapPaint);
+
+    // Card slot
+    final cardPaint = Paint()
+      ..color = const Color(0xFF0D2137)
+      ..style = PaintingStyle.fill;
+    final cardRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.2, h * 0.45, w * 0.6, h * 0.22),
+        const Radius.circular(8));
+    canvas.drawRRect(cardRect, cardPaint);
+
+    // Card stripe
+    final stripePaint = Paint()
+      ..color = const Color(0xFFFFD700).withOpacity(0.6)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(Rect.fromLTWH(w * 0.2, h * 0.52, w * 0.6, h * 0.05),
+        stripePaint);
+
+    // Coin stack — 3 coins
+    for (int i = 2; i >= 0; i--) {
+      final coinPaint = Paint()
+        ..color = i == 0
+            ? const Color(0xFFFFD700)
+            : const Color(0xFFFFD700).withOpacity(0.5 + i * 0.15)
+        ..style = PaintingStyle.fill;
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(w * 0.72, h * 0.3 + i * 4),
+              width: w * 0.18,
+              height: w * 0.08),
+          coinPaint);
+    }
+
+    // Dollar sign on top coin
+    final textPainter = TextPainter(
+      text: const TextSpan(
+          text: '₹',
+          style: TextStyle(
+              color: Colors.black,
+              fontSize: 11,
+              fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+        canvas, Offset(w * 0.72 - 5, h * 0.26));
+
+    // Sparkle dots around
+    final sparklePaint = Paint()
+      ..color = const Color(0xFFFFD700).withOpacity(0.4)
+      ..style = PaintingStyle.fill;
+    for (final pos in [
+      Offset(w * 0.15, h * 0.12),
+      Offset(w * 0.85, h * 0.18),
+      Offset(w * 0.08, h * 0.55),
+      Offset(w * 0.92, h * 0.6),
+    ]) {
+      canvas.drawCircle(pos, 3, sparklePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EmptyWalletPainter oldDelegate) => false;
 }

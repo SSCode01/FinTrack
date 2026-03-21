@@ -583,12 +583,16 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         decoration: BoxDecoration(
                           color: _remaining.abs() < 1
                               ? Colors.green.withOpacity(0.1)
-                              : Colors.orange.withOpacity(0.1),
+                              : _remaining < -1
+                                  ? Colors.red.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: _remaining.abs() < 1
                                 ? Colors.greenAccent.withOpacity(0.3)
-                                : Colors.orange.withOpacity(0.3),
+                                : _remaining < -1
+                                    ? Colors.redAccent.withOpacity(0.4)
+                                    : Colors.orange.withOpacity(0.3),
                           ),
                         ),
                         child: Row(
@@ -597,19 +601,25 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                             Text(
                               _remaining.abs() < 1
                                   ? '✓ Fully allocated'
-                                  : 'Remaining to assign',
+                                  : _remaining < -1
+                                      ? '⚠ Over-assigned by'
+                                      : 'Remaining to assign',
                               style: TextStyle(
                                 color: _remaining.abs() < 1
                                     ? Colors.greenAccent
-                                    : Colors.orange,
+                                    : _remaining < -1
+                                        ? Colors.redAccent
+                                        : Colors.orange,
                                 fontSize: 13,
                               ),
                             ),
                             if (_remaining.abs() >= 1)
                               Text(
-                                formatAmount(_remaining),
-                                style: const TextStyle(
-                                  color: Colors.orange,
+                                formatAmount(_remaining.abs()),
+                                style: TextStyle(
+                                  color: _remaining < -1
+                                      ? Colors.redAccent
+                                      : Colors.orange,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
@@ -705,14 +715,22 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                               SizedBox(
                                 width: 90,
                                 child: TextField(
-                                  keyboardType: TextInputType.number,
-                                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                                  ],
+                                  style: TextStyle(
+                                    color: _remaining < -1 ? Colors.redAccent : Colors.white,
+                                    fontSize: 14,
+                                  ),
                                   textAlign: TextAlign.center,
                                   decoration: InputDecoration(
                                     hintText: '0',
                                     hintStyle: const TextStyle(color: Colors.white38),
                                     filled: true,
-                                    fillColor: const Color(0xFF081520),
+                                    fillColor: _remaining < -1
+                                        ? Colors.red.withOpacity(0.1)
+                                        : const Color(0xFF081520),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
                                       borderSide: BorderSide.none,
