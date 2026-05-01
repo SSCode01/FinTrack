@@ -91,6 +91,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       date: _selectedDate,
       isPaid: isPaid,
       category: _selectedCategory,
+      settledAmount: widget.existingTxn?.settledAmount ?? 0.0,
     );
 
     if (widget.existingTxn != null) {

@@ -9,6 +9,7 @@ class MoneyTransaction {
   DateTime date;
   bool isPaid;
   String category;
+  double settledAmount;
 
   MoneyTransaction({
     required this.id,
@@ -19,6 +20,7 @@ class MoneyTransaction {
     required this.date,
     this.isPaid = false,
     this.category = 'Other',
+    this.settledAmount = 0.0,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class MoneyTransaction {
       'date': Timestamp.fromDate(date),
       'isPaid': isPaid,
       'category': category,
+      'settledAmount': settledAmount,
     };
   }
 
@@ -44,6 +47,7 @@ class MoneyTransaction {
       date: (map['date'] as Timestamp).toDate(),
       isPaid: map['isPaid'] ?? false,
       category: map['category'] ?? 'Other',
+      settledAmount: (map['settledAmount'] ?? 0).toDouble(),
     );
   }
 }

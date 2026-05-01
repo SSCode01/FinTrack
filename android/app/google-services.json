@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "305156686283-jlp74v0cgjrog7uqicdd507ntkqee5d6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fintrack",
+            "certificate_hash": "75a3bbf27085ad98c402ae38a8ece35b03a584fe"
+          }
+        },
+        {
           "client_id": "305156686283-4k5kgerflhjo7csd3h8lmh0k25b0b7ve.apps.googleusercontent.com",
           "client_type": 3
         }

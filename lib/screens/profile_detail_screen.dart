@@ -6,11 +6,16 @@ import '../utils/balance_utils.dart';
 import '../utils/format_utils.dart';
 import 'add_transaction_screen.dart';
 
-class ProfileDetailScreen extends StatelessWidget {
+class ProfileDetailScreen extends StatefulWidget {
   final String personName;
 
   const ProfileDetailScreen({super.key, required this.personName});
 
+  @override
+  State<ProfileDetailScreen> createState() => _ProfileDetailScreenState();
+}
+
+class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   String _formatDate(DateTime date) =>
       '${date.day}/${date.month}/${date.year}';
 
@@ -19,12 +24,29 @@ class ProfileDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(personName,
+        title: Text(widget.personName,
             style: const TextStyle(
                 color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1B5E20),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      floatingActionButton: StreamBuilder<List<MoneyTransaction>>(
+        stream: TransactionService.transactionsStream(),
+        builder: (context, snapshot) {
+          final allTxns = (snapshot.data ?? [])
+              .where((t) => t.personName == widget.personName && !t.isPaid)
+              .toList()
+            ..sort((a, b) => a.date.compareTo(b.date));
+          if (allTxns.isEmpty) return const SizedBox.shrink();
+          
+          return FloatingActionButton.extended(
+            onPressed: () => _settleUp(allTxns),
+            backgroundColor: const Color(0xFF1B5E20),
+            icon: const Icon(Icons.handshake, color: Color(0xFFFFD700)),
+            label: const Text('Settle Up', style: TextStyle(color: Color(0xFFFFD700))),
+          );
+        },
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -49,7 +71,7 @@ class ProfileDetailScreen extends StatelessWidget {
             }
 
             final allTxns = (snapshot.data ?? [])
-                .where((t) => t.personName == personName)
+                .where((t) => t.personName == widget.personName)
                 .toList()
               ..sort((a, b) => a.date.compareTo(b.date));
 
@@ -187,7 +209,7 @@ class ProfileDetailScreen extends StatelessWidget {
                                         backgroundColor:
                                             Colors.red.shade700,
                                         child: Text(
-                                          personName[0].toUpperCase(),
+                                          widget.personName[0].toUpperCase(),
                                           style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 12,
@@ -246,7 +268,7 @@ class ProfileDetailScreen extends StatelessWidget {
                                           children: [
                                             // AMOUNT
                                             Text(
-                                              '${isRight ? '+' : '-'}${formatAmount(t.amount)}',
+                                              '${isRight ? '+' : '-'}${formatAmount(t.amount - t.settledAmount)}',
                                               style: TextStyle(
                                                 color: isRight
                                                     ? Colors.greenAccent
@@ -255,6 +277,13 @@ class ProfileDetailScreen extends StatelessWidget {
                                                 fontSize: 18,
                                               ),
                                             ),
+                                            if (t.settledAmount > 0 && !t.isPaid)
+                                              Text(
+                                                'Original: ${formatAmount(t.amount)} (Settled: ${formatAmount(t.settledAmount)})',
+                                                style: const TextStyle(
+                                                    color: Colors.white54,
+                                                    fontSize: 10),
+                                              ),
 
                                             // NOTE
                                             if (t.note.isNotEmpty) ...[
@@ -364,5 +393,78 @@ class ProfileDetailScreen extends StatelessWidget {
                 const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
     );
+  }
+
+  Future<void> _settleUp(List<MoneyTransaction> unpaidTxns) async {
+    final amountCtrl = TextEditingController();
+    bool theyPaidMe = true; 
+
+    final outstanding = calculateBalance(unpaidTxns);
+    if (outstanding < 0) theyPaidMe = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (context, setStateSB) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF0D1F2D),
+            title: const Text('Record Payment', style: TextStyle(color: Colors.white)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Amount',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.05),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: Text(theyPaidMe ? 'They paid me' : 'I paid them', style: const TextStyle(color: Colors.white)),
+                  value: theyPaidMe,
+                  onChanged: (val) => setStateSB(() => theyPaidMe = val),
+                  activeColor: Colors.greenAccent,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true), 
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B5E20)),
+                child: const Text('Settle', style: TextStyle(color: Color(0xFFFFD700))),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    if (result != true) return;
+
+    double payment = double.tryParse(amountCtrl.text) ?? 0;
+    if (payment <= 0) return;
+
+    final targetTxns = unpaidTxns.where((t) => t.isCredit == theyPaidMe && !t.isPaid).toList();
+
+    for (final txn in targetTxns) {
+      if (payment <= 0) break;
+      
+      double remaining = txn.amount - txn.settledAmount;
+      if (payment >= remaining) {
+        txn.settledAmount += remaining;
+        txn.isPaid = true;
+        payment -= remaining;
+      } else {
+        txn.settledAmount += payment;
+        payment = 0;
+      }
+      await TransactionService.updateTransaction(txn);
+    }
   }
 }

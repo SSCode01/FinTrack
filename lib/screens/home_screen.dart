@@ -226,27 +226,37 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 14,
                               height: 1.6)),
                       const SizedBox(height: 28),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: const Color(0xFFFFD700).withOpacity(0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add_circle_outline,
-                                color: Color(0xFFFFD700), size: 16),
-                            SizedBox(width: 8),
-                            Text('Add your first transaction',
-                                style: TextStyle(
-                                    color: Color(0xFFFFD700),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500)),
-                          ],
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const AddTransactionScreen()),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFFFFD700).withOpacity(0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.add_circle_outline,
+                                  color: Color(0xFFFFD700), size: 16),
+                              SizedBox(width: 8),
+                              Text('Add your first transaction',
+                                  style: TextStyle(
+                                      color: Color(0xFFFFD700),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500)),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -367,15 +377,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  Text(
-                    '${txn.isCredit ? '+' : '-'}${formatAmount(txn.amount)}',
-                    style: TextStyle(
-                      color: txn.isCredit
-                          ? Colors.greenAccent
-                          : Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${txn.isCredit ? '+' : '-'}${formatAmount(txn.amount - txn.settledAmount)}',
+                        style: TextStyle(
+                          color: txn.isCredit
+                              ? Colors.greenAccent
+                              : Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      if (txn.settledAmount > 0)
+                        Text(
+                          'Orig: ${formatAmount(txn.amount)}',
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

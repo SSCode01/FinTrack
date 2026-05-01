@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'signup_screen.dart';
+import '../main_nav_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,6 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavScreen()),
+          (route) => false,
+        );
+      }
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = _friendlyError(e.code));
     } finally {
@@ -46,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final GoogleSignIn googleSignIn = GoogleSignIn(
         clientId: '305156686283-4k5kgerflhjo7csd3h8lmh0k25b0b7ve.apps.googleusercontent.com',
       );
+      await googleSignIn.signOut(); // clear cached account → forces picker
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         setState(() => _isGoogleLoading = false);
@@ -58,6 +66,13 @@ class _LoginScreenState extends State<LoginScreen> {
         idToken: googleAuth.idToken,
       );
       await FirebaseAuth.instance.signInWithCredential(credential);
+      // Explicitly navigate to home after successful sign-in
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavScreen()),
+          (route) => false,
+        );
+      }
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = _friendlyError(e.code));
     } catch (e) {

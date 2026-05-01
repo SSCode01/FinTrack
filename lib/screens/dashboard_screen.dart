@@ -47,10 +47,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final paid = txns.where((t) => t.isPaid).toList();
     final totalReceivable = unpaid
         .where((t) => t.isCredit)
-        .fold<double>(0, (s, t) => s + t.amount);
+        .fold<double>(0, (s, t) => s + (t.amount - t.settledAmount));
     final totalPayable = unpaid
         .where((t) => !t.isCredit)
-        .fold<double>(0, (s, t) => s + t.amount);
+        .fold<double>(0, (s, t) => s + (t.amount - t.settledAmount));
     final netBalance = totalReceivable - totalPayable;
 
     pdf.addPage(
@@ -134,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         _pdfCell(t.personName),
                         _pdfCell(t.note.isEmpty ? '-' : t.note),
-                        _pdfCell(_pdfAmount(t.amount)),
+                        _pdfCell(_pdfAmount(t.amount - t.settledAmount)),
                         _pdfCell(t.isCredit ? 'Owed to me' : 'I owe'),
                       ],
                     )),
@@ -290,18 +290,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             final totalReceivable = unpaid
                 .where((t) => t.isCredit)
-                .fold<double>(0, (s, t) => s + t.amount);
+                .fold<double>(0, (s, t) => s + (t.amount - t.settledAmount));
             final totalPayable = unpaid
                 .where((t) => !t.isCredit)
-                .fold<double>(0, (s, t) => s + t.amount);
+                .fold<double>(0, (s, t) => s + (t.amount - t.settledAmount));
             final netBalance = totalReceivable - totalPayable;
 
             // Group by person for chart
             final Map<String, double> byPerson = {};
             for (final t in unpaid) {
+              final remaining = t.amount - t.settledAmount;
               byPerson[t.personName] =
                   (byPerson[t.personName] ?? 0) +
-                      (t.isCredit ? t.amount : -t.amount);
+                      (t.isCredit ? remaining : -remaining);
             }
             final topPersons = byPerson.entries.toList()
               ..sort((a, b) => b.value.abs().compareTo(a.value.abs()));
