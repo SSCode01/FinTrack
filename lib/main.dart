@@ -32,6 +32,13 @@ void main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
+  // Explicitly set auth persistence for desktop/web platforms
+  try {
+    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  } catch (e) {
+    debugPrint('Auth persistence error: $e');
+  }
+
   runApp(const FinTrackApp());
 }
 
