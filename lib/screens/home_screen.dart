@@ -96,28 +96,44 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text(
           'Transactions',
           style: TextStyle(
-            color: Color(0xFFFBC02D),
+            color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                  blurRadius: 4,
-                  color: Colors.black38,
-                  offset: Offset(0, 1)),
-            ],
           ),
         ),
         backgroundColor: Colors.transparent,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-            ),
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: Colors.white.withOpacity(0.08),
+            height: 1,
           ),
         ),
-        elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.call_split, color: Colors.white),
+            tooltip: 'Split Bill',
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const SplitBillScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, color: Colors.white),
+            tooltip: 'Add Transaction',
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AddTransactionScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.search, color: Colors.white),
             tooltip: 'Search',
@@ -130,44 +146,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ],
-      ),
-
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 72),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // SPLIT BILL FAB
-            FloatingActionButton.small(
-              heroTag: 'split',
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SplitBillScreen()),
-                );
-              },
-              backgroundColor: const Color(0xFF1B5E20),
-              child: const Icon(Icons.call_split, color: Color(0xFFFFD700)),
-            ),
-            const SizedBox(height: 8),
-            // ADD TRANSACTION FAB
-            FloatingActionButton(
-              heroTag: 'add',
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const AddTransactionScreen()),
-                );
-              },
-              backgroundColor: const Color(0xFF1B5E20),
-              child: const Icon(Icons.add, color: Color(0xFFFFD700)),
-            ),
-          ],
-        ),
       ),
 
       body: Container(
@@ -269,6 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
             int globalIndex = 0;
 
             return ListView(
+              physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 120, top: 8),
               children: [
                 for (final section in sectionOrder)

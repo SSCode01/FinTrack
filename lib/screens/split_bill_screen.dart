@@ -178,32 +178,40 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text(
-          'Split Bill',
-          style: TextStyle(
-              color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0A1628),
+            Color(0xFF0D2137),
+            Color(0xFF0A1F1A),
+          ],
+          stops: [0.0, 0.5, 1.0],
         ),
-        backgroundColor: const Color(0xFF1B5E20),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0A1628),
-              Color(0xFF0D2137),
-              Color(0xFF0A1F1A),
-            ],
-            stops: [0.0, 0.5, 1.0],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text(
+            'Split Bill',
+            style: TextStyle(
+                color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              color: Colors.white.withOpacity(0.08),
+              height: 1,
+            ),
           ),
         ),
-        child: ListView(
+        body: ListView(
+          physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
             // BILL DETAILS CARD

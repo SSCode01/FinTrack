@@ -27,52 +27,59 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1B5E20),
-        elevation: 0,
-        titleSpacing: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          cursorColor: const Color(0xFFFFD700),
-          decoration: InputDecoration(
-            hintText: 'Search people, notes, amounts...',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-            border: InputBorder.none,
-            suffixIcon: _query.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.white54),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _query = '');
-                    },
-                  )
-                : null,
-          ),
-          onChanged: (val) => setState(() => _query = val.toLowerCase().trim()),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0A1628),
+            Color(0xFF0D2137),
+            Color(0xFF0A1F1A),
+          ],
+          stops: [0.0, 0.5, 1.0],
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0A1628),
-              Color(0xFF0D2137),
-              Color(0xFF0A1F1A),
-            ],
-            stops: [0.0, 0.5, 1.0],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          titleSpacing: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              color: Colors.white.withOpacity(0.08),
+              height: 1,
+            ),
+          ),
+          title: TextField(
+            controller: _searchController,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            cursorColor: const Color(0xFFFFD700),
+            decoration: InputDecoration(
+              hintText: 'Search people, notes, amounts...',
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              border: InputBorder.none,
+              suffixIcon: _query.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white54),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    )
+                  : null,
+            ),
+            onChanged: (val) => setState(() => _query = val.toLowerCase().trim()),
           ),
         ),
-        child: StreamBuilder<List<MoneyTransaction>>(
+        body: StreamBuilder<List<MoneyTransaction>>(
           stream: TransactionService.transactionsStream(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -135,6 +142,7 @@ class _SearchScreenState extends State<SearchScreen> {
             final past = results.where((t) => t.isPaid).toList();
 
             return ListView(
+              physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 40),
               children: [
                 // RESULT COUNT

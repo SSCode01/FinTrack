@@ -238,27 +238,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text(
           'Dashboard',
           style: TextStyle(
-            color: Color(0xFFFBC02D),
+            color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                  blurRadius: 4,
-                  color: Colors.black38,
-                  offset: Offset(0, 1))
-            ],
           ),
         ),
         backgroundColor: Colors.transparent,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-            ),
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: Colors.white.withOpacity(0.08),
+            height: 1,
           ),
         ),
-        elevation: 0,
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -309,6 +301,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final chartData = topPersons.take(5).toList();
 
             return ListView(
+              physics: const BouncingScrollPhysics(),
               controller: _scrollController,
               padding: EdgeInsets.only(
                 bottom: 100,
@@ -467,6 +460,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             final entries = byCategory.entries.toList()
                               ..sort((a, b) =>
                                   b.value.compareTo(a.value));
+                            final totalAmount = entries.fold<double>(0.0, (sum, entry) => sum + entry.value);
 
                             return Column(
                               children: [
@@ -479,12 +473,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       sections: entries.map((e) {
                                         final cat =
                                             getCategoryByName(e.key);
+                                        final percentage = totalAmount > 0 ? e.value / totalAmount : 0.0;
+                                        final showTitle = percentage > 0.08;
                                         return PieChartSectionData(
                                           value: e.value,
                                           color: cat.color,
-                                          title: cat.name
-                                              .split(' ')
-                                              .first,
+                                          title: showTitle
+                                              ? cat.name.split(' ').first
+                                              : '',
                                           titleStyle: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 10,

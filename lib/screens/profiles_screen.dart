@@ -95,16 +95,14 @@ class ProfilesScreen extends StatelessWidget {
             style: TextStyle(
                 color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-            ),
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: Colors.white.withOpacity(0.08),
+            height: 1,
           ),
         ),
-        elevation: 0,
         actions: [
           IconButton(
             tooltip: 'Settings',
@@ -163,10 +161,31 @@ class ProfilesScreen extends StatelessWidget {
                     a.value.where((t) => !t.isPaid).toList());
                 final balB = calculateBalance(
                     b.value.where((t) => !t.isPaid).toList());
-                return balB.compareTo(balA);
+
+                int getGroup(double bal) {
+                  if (bal > 0) return 0; // Owe me
+                  if (bal < 0) return 1; // I owe
+                  return 2;              // Settled
+                }
+
+                final gA = getGroup(balA);
+                final gB = getGroup(balB);
+
+                if (gA != gB) {
+                  return gA.compareTo(gB);
+                }
+
+                if (gA == 0) {
+                  return balB.compareTo(balA); // Sort descending (most owed to me first)
+                } else if (gA == 1) {
+                  return balA.compareTo(balB); // Sort ascending (most owed by me first)
+                } else {
+                  return a.key.toLowerCase().compareTo(b.key.toLowerCase()); // Alphabetical for settled
+                }
               });
 
             return ListView.builder(
+              physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 100),
               itemCount: entries.length,
               itemBuilder: (context, index) {
@@ -175,6 +194,9 @@ class ProfilesScreen extends StatelessWidget {
                 final unpaid = txns.where((t) => !t.isPaid).toList();
                 final paidCount = txns.where((t) => t.isPaid).length;
                 final outstanding = calculateBalance(unpaid);
+                final initials = entry.key.trim().isNotEmpty
+                    ? entry.key.trim()[0].toUpperCase()
+                    : '?';
 
                 return Card(
                   color: Colors.white.withOpacity(0.07),
@@ -190,10 +212,22 @@ class ProfilesScreen extends StatelessWidget {
                             ProfileDetailScreen(personName: entry.key),
                       ),
                     ),
-                    leading: CircleAvatar(
-                      backgroundColor:
-                          outstanding >= 0 ? Colors.green : Colors.red,
-                      child: const Icon(Icons.person, color: Colors.white),
+                    leading: Hero(
+                      tag: 'avatar_${entry.key}',
+                      child: CircleAvatar(
+                        backgroundColor: outstanding >= 0
+                            ? Colors.green.withOpacity(0.2)
+                            : Colors.red.withOpacity(0.2),
+                        child: Text(
+                          initials,
+                          style: TextStyle(
+                            color: outstanding >= 0
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
                     title: Text(entry.key,
                         style: const TextStyle(

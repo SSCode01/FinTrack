@@ -21,47 +21,54 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(widget.personName,
-            style: const TextStyle(
-                color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1B5E20),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0A1628),
+            Color(0xFF0D2137),
+            Color(0xFF0A1F1A),
+          ],
+          stops: [0.0, 0.5, 1.0],
+        ),
       ),
-      floatingActionButton: StreamBuilder<List<MoneyTransaction>>(
-        stream: TransactionService.transactionsStream(),
-        builder: (context, snapshot) {
-          final allTxns = (snapshot.data ?? [])
-              .where((t) => t.personName == widget.personName && !t.isPaid)
-              .toList()
-            ..sort((a, b) => a.date.compareTo(b.date));
-          if (allTxns.isEmpty) return const SizedBox.shrink();
-          
-          return FloatingActionButton.extended(
-            onPressed: () => _settleUp(allTxns),
-            backgroundColor: const Color(0xFF1B5E20),
-            icon: const Icon(Icons.handshake, color: Color(0xFFFFD700)),
-            label: const Text('Settle Up', style: TextStyle(color: Color(0xFFFFD700))),
-          );
-        },
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0A1628),
-              Color(0xFF0D2137),
-              Color(0xFF0A1F1A),
-            ],
-            stops: [0.0, 0.5, 1.0],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text(widget.personName,
+              style: const TextStyle(
+                  color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              color: Colors.white.withOpacity(0.08),
+              height: 1,
+            ),
           ),
         ),
-        child: StreamBuilder<List<MoneyTransaction>>(
+        floatingActionButton: StreamBuilder<List<MoneyTransaction>>(
+          stream: TransactionService.transactionsStream(),
+          builder: (context, snapshot) {
+            final allTxns = (snapshot.data ?? [])
+                .where((t) => t.personName == widget.personName && !t.isPaid)
+                .toList()
+              ..sort((a, b) => a.date.compareTo(b.date));
+            if (allTxns.isEmpty) return const SizedBox.shrink();
+            
+            return FloatingActionButton.extended(
+              onPressed: () => _settleUp(allTxns),
+              backgroundColor: const Color(0xFF1B5E20),
+              icon: const Icon(Icons.handshake, color: Color(0xFFFFD700)),
+              label: const Text('Settle Up', style: TextStyle(color: Color(0xFFFFD700))),
+            );
+          },
+        ),
+        body: StreamBuilder<List<MoneyTransaction>>(
           stream: TransactionService.transactionsStream(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -79,9 +86,42 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
             final paid = allTxns.where((t) => t.isPaid).toList();
             final outstanding = calculateBalance(unpaid);
             final total = calculateBalance(allTxns);
+            final initials = widget.personName.trim().isNotEmpty
+                ? widget.personName.trim()[0].toUpperCase()
+                : '?';
 
             return Column(
               children: [
+                const SizedBox(height: 16),
+                Hero(
+                  tag: 'avatar_${widget.personName}',
+                  child: CircleAvatar(
+                    radius: 36,
+                    backgroundColor: outstanding >= 0
+                        ? Colors.green.withOpacity(0.2)
+                        : Colors.red.withOpacity(0.2),
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        color: outstanding >= 0
+                            ? Colors.greenAccent
+                            : Colors.redAccent,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.personName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 // STATS HEADER
                 Container(
                   margin: const EdgeInsets.all(16),
@@ -174,6 +214,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                                   color: Colors.white, fontSize: 16)),
                         )
                       : ListView.builder(
+                          physics: const BouncingScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
                           itemCount: allTxns.length,
                           itemBuilder: (context, index) {

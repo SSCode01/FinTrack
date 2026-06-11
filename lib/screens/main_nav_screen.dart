@@ -54,7 +54,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
           index: _currentIndex,
           children: _screens,
         ),
-        extendBody: true,
+        extendBody: false,
         bottomNavigationBar: AnimatedNotchBottomBar(
           notchBottomBarController: _controller,
           color: const Color(0xFF0A1628),

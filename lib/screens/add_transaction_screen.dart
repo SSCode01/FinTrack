@@ -126,42 +126,41 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.existingTxn != null;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(
-          isEdit ? 'Edit Transaction' : 'Add Transaction',
-          style: const TextStyle(
-              color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0A1628),
+            Color(0xFF0D2137),
+            Color(0xFF0A1F1A),
+          ],
+          stops: [0.0, 0.5, 1.0],
         ),
+      ),
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+        appBar: AppBar(
+          title: Text(
+            isEdit ? 'Edit Transaction' : 'Add Transaction',
+            style: const TextStyle(
+                color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              color: Colors.white.withOpacity(0.08),
+              height: 1,
             ),
           ),
         ),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0A1628),
-              Color(0xFF0D2137),
-              Color(0xFF0A1F1A),
-            ],
-            stops: [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: Center(
+        body: Center(
           child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(20),
             child: Card(
               color: Colors.white.withOpacity(0.07),
@@ -264,6 +263,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     SizedBox(
                       height: 80,
                       child: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
                         scrollDirection: Axis.horizontal,
                         itemCount: kCategories.length,
                         itemBuilder: (context, index) {

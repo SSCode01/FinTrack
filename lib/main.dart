@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -33,10 +35,12 @@ void main() async {
   );
 
   // Explicitly set auth persistence for desktop/web platforms
-  try {
-    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-  } catch (e) {
-    debugPrint('Auth persistence error: $e');
+  if (kIsWeb) {
+    try {
+      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    } catch (e) {
+      debugPrint('Auth persistence error: $e');
+    }
   }
 
   runApp(const FinTrackApp());
@@ -72,20 +76,32 @@ class _SplashWrapperState extends State<SplashWrapper> {
   bool _showSplash = true;
   bool _isFirstLaunch = false;
   bool _prefsLoaded = false;
+  User? _currentUser;
+  bool _authCheckDone = false;
+  StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _init();
+    _subscribeToAuth();
+  }
+
+  void _subscribeToAuth() {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _authCheckDone = true;
+        });
+      }
+    });
   }
 
   Future<void> _init() async {
     // Load prefs and splash timer in parallel
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool('onboarding_seen') ?? false;
-    if (!seen) {
-      await prefs.setBool('onboarding_seen', true);
-    }
     if (mounted) {
       setState(() {
         _isFirstLaunch = !seen;
@@ -98,21 +114,26 @@ class _SplashWrapperState extends State<SplashWrapper> {
   }
 
   @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (_showSplash || !_prefsLoaded) return const SplashScreen();
+    // Show splash screen until the timer finishes, SharedPreferences are loaded,
+    // and the initial Firebase Authentication check has completed.
+    if (_showSplash || !_prefsLoaded || !_authCheckDone) {
+      return const SplashScreen();
+    }
 
     // First ever launch → show onboarding
     if (_isFirstLaunch) return const OnboardingScreen();
 
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SplashScreen();
-        }
-        if (snapshot.hasData) return const MainNavScreen();
-        return const LoginScreen();
-      },
-    );
+    if (_currentUser != null) {
+      return const MainNavScreen();
+    } else {
+      return const LoginScreen();
+    }
   }
 }
